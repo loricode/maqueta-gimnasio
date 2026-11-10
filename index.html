@@ -28,6 +28,7 @@ img{max-width:100%}
 .material-symbols-rounded.fill{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24}
 .boot{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font:600 15px var(--f-body)}
 .num{font-variant-numeric:tabular-nums}
+@keyframes lift{from{transform:rotate(-45deg) translateX(-10px);opacity:0}to{transform:rotate(-45deg) translateX(0);opacity:1}}
 @keyframes pop{from{transform:scale(.96);opacity:.4}to{transform:scale(1);opacity:1}}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -1151,10 +1152,11 @@ function Shell({ ctx }) {
       </Stack>
       <List sx={{ px: 1.25, flex: 1 }}>
         {items.map(n => { const on = ctx.page === n.id; return (
-          <ListItemButton key={n.id} onClick={() => { ctx.go(n.id); setOpen(false); }} selected={on}
-            sx={{ borderRadius: 2, mb: .5, color: on ? 'primary.contrastText' : 'inherit', '&.Mui-selected': { bgcolor: 'primary.main' }, '&.Mui-selected:hover': { bgcolor: 'primary.main' }, '&:hover': { bgcolor: alpha('#FFFFFF', .08) } }}>
+          <ListItemButton key={n.id} onClick={() => { ctx.go(n.id); setOpen(false); }} selected={on} aria-current={on ? 'page' : undefined}
+            sx={{ borderRadius: 2, mb: .5, color: on ? '#FFFFFF' : alpha('#E9ECF1', .78), '&.Mui-selected': { bgcolor: alpha('#FFFFFF', .07) }, '&.Mui-selected:hover': { bgcolor: alpha('#FFFFFF', .1) }, '&:hover': { bgcolor: alpha('#FFFFFF', .06) } }}>
             <ListItemIcon sx={{ minWidth: 38, color: 'inherit' }}><I n={n.icon} fill={on} /></ListItemIcon>
             <ListItemText primary={n.label} primaryTypographyProps={{ fontWeight: on ? 700 : 500 }} />
+            {on && <I n="fitness_center" fill aria-hidden="true" sx={{ color: 'primary.main', fontSize: 22, transform: 'rotate(-45deg)', animation: 'lift .35s ease-out' }} />}
           </ListItemButton>); })}
       </List>
       <Box sx={{ p: 2, m: 1.25, borderRadius: 3, bgcolor: alpha('#FFFFFF', .06) }}>
