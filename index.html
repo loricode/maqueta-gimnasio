@@ -1,0 +1,1416 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Titán Fitness Club</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0&display=block">
+<style>
+/* Layout: barra lateral grafito fija (cajón en celular), barra superior con rol y reloj, contenido desplazable.
+   El tema MUI se genera desde la paleta elegida en Configuración (por defecto "Pulso": naranja energía + grafito + lima). */
+:root{
+  --bg:#F4F5F7; --fg:#171A1F; --muted:#5D6470; --accent:#FF5B14;
+  --f-display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0E1116;--fg:#E9ECF1;--muted:#9AA3B0;--accent:#FF7A3D;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E1116;--fg:#E9ECF1;--muted:#9AA3B0;--accent:#FF7A3D;color-scheme:dark}
+html,body,#root{height:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body)}
+img{max-width:100%}
+.gutter{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.material-symbols-rounded{font-variation-settings:'FILL' 0,'wght' 450,'GRAD' 0,'opsz' 24;user-select:none}
+.material-symbols-rounded.fill{font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 24}
+.boot{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font:600 15px var(--f-body)}
+.num{font-variant-numeric:tabular-nums}
+@keyframes pop{from{transform:scale(.96);opacity:.4}to{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div id="root"><div class="boot">Cargando Titán Fitness Club…</div></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@mui/material@5.15.20/umd/material-ui.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useEffect, useRef } = React;
+const {
+  createTheme, ThemeProvider, CssBaseline, useTheme, useMediaQuery, alpha, darken, lighten, getContrastRatio,
+  AppBar, Toolbar, Typography, Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, IconButton, Icon,
+  Button, Card, CardContent, Grid, Chip, Avatar, Table, TableHead, TableBody, TableRow, TableCell, TableContainer,
+  TextField, Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert, Tabs, Tab, Switch, FormControlLabel,
+  Checkbox, Divider, Stack, Tooltip, ToggleButton, ToggleButtonGroup, MenuItem, InputAdornment, LinearProgress, Paper
+} = MaterialUI;
+
+/* ---------- Fechas y formatos ---------- */
+const TODAY = '2026-11-10';
+const MES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+const d2n = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) / 86400000;
+const n2d = n => new Date(n * 86400000).toISOString().slice(0, 10);
+const addDays = (s, k) => n2d(d2n(s) + k);
+const diff = (a, b) => d2n(a) - d2n(b);
+const fdate = s => s ? `${s.slice(8, 10)} ${MES[+s.slice(5, 7) - 1]} ${s.slice(0, 4)}` : '—';
+const hm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+const fmt = n => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(n) || 0);
+const initials = n => n.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+
+/* ---------- Paletas recomendadas para gimnasio ---------- */
+const PALETTES = {
+  pulso: { name: 'Pulso', desc: 'Naranja energía + grafito + lima. Energía sin agresividad; el rojo queda solo para "rechazado".', primary: '#FF5B14', secondary: '#1C222B', accent: '#B8F23A', rec: true },
+  voltaje: { name: 'Voltaje', desc: 'Azul eléctrico + lima. Tecnológico y limpio, para gimnasios de alto tráfico.', primary: '#2563EB', secondary: '#111827', accent: '#B8F23A' },
+  potencia: { name: 'Potencia', desc: 'Rojo + negro + amarillo. Fuerza, crossfit y boxeo.', primary: '#D7263D', secondary: '#0B0B0D', accent: '#FFD23F' },
+  bienestar: { name: 'Bienestar', desc: 'Verde azulado + pizarra + arena. Funcional, yoga y estilo spa.', primary: '#0F9D8A', secondary: '#22313A', accent: '#F2C58C' }
+};
+const SEM = { success: '#1F9D55', warning: '#F2A516', error: '#E03A3A', info: '#1E9BD7' };
+const ink = c => getContrastRatio(c, '#FFFFFF') >= 4.5 ? '#FFFFFF' : '#15120F';
+
+function buildTheme(brand, mode) {
+  const p = PALETTES[brand.palette] || PALETTES.pulso;
+  const dark = mode === 'dark';
+  return createTheme({
+    palette: {
+      mode,
+      primary: { main: p.primary, contrastText: ink(p.primary) },
+      secondary: { main: p.secondary, contrastText: '#FFFFFF' },
+      success: { main: SEM.success, contrastText: '#FFFFFF' },
+      warning: { main: SEM.warning, contrastText: '#1E1505' },
+      error: { main: SEM.error, contrastText: '#FFFFFF' },
+      info: { main: SEM.info, contrastText: '#FFFFFF' },
+      background: { default: dark ? '#0E1116' : '#F4F5F7', paper: dark ? '#161B22' : '#FFFFFF' },
+      text: { primary: dark ? '#E9ECF1' : '#171A1F', secondary: dark ? '#9AA3B0' : '#5D6470' },
+      divider: dark ? '#262D37' : '#E3E6EB',
+      accent: { main: p.accent, contrastText: ink(p.accent) },
+      side: { main: dark ? '#0A0D11' : p.secondary }
+    },
+    shape: { borderRadius: 12 },
+    typography: {
+      fontFamily: 'Inter, system-ui, sans-serif',
+      h1: { fontFamily: 'var(--f-display)', fontWeight: 800 }, h2: { fontFamily: 'var(--f-display)', fontWeight: 800 },
+      h3: { fontFamily: 'var(--f-display)', fontWeight: 800 }, h4: { fontFamily: 'var(--f-display)', fontWeight: 800, letterSpacing: '-.01em' },
+      h5: { fontFamily: 'var(--f-display)', fontWeight: 700 }, h6: { fontFamily: 'var(--f-display)', fontWeight: 700 },
+      button: { textTransform: 'none', fontWeight: 700 },
+      overline: { fontWeight: 700, letterSpacing: '.12em' }
+    },
+    components: {
+      MuiCard: { defaultProps: { elevation: 0 }, styleOverrides: { root: ({ theme }) => ({ border: `1px solid ${theme.palette.divider}` }) } },
+      MuiButton: { defaultProps: { disableElevation: true }, styleOverrides: { root: { borderRadius: 10 } } },
+      MuiChip: { styleOverrides: { root: { fontWeight: 600 } } },
+      MuiTableCell: { styleOverrides: { head: { fontWeight: 700, fontSize: 12.5, textTransform: 'uppercase', letterSpacing: '.05em' } } },
+      MuiTableHead: { styleOverrides: { root: { backgroundColor: dark ? '#1B212A' : '#EEF0F3' } } },
+      MuiTableBody: { styleOverrides: { root: {
+        '& .MuiTableRow-root:nth-of-type(even)': { backgroundColor: dark ? alpha('#FFFFFF', .035) : '#F7F8FA' },
+        '& .MuiTableRow-root:hover': { backgroundColor: alpha(p.primary, dark ? .12 : .07) },
+        '& .MuiTableRow-root:last-of-type .MuiTableCell-root': { borderBottom: 0 }
+      } } },
+      MuiDialog: { styleOverrides: { paper: { borderRadius: 16 } } }
+    }
+  });
+}
+
+/* ---------- Datos de ejemplo ---------- */
+const USERS = {
+  recepcion: { name: 'Julián Arango', role: 'Recepción' },
+  gerencia: { name: 'Marcela Duarte', role: 'Gerencia' },
+  admin: { name: 'Ana Lucía Prieto', role: 'Administrador' }
+};
+const PERMS = {
+  recepcion: [],
+  gerencia: ['acceso.excepcion', 'membresia.congelar', 'membresia.activacion_manual', 'pos.ajuste_anulacion', 'descuento.autorizar', 'reportes'],
+  admin: ['acceso.excepcion', 'membresia.congelar', 'membresia.activacion_manual', 'pos.ajuste_anulacion', 'descuento.autorizar', 'reportes', 'plan.editar', 'config']
+};
+const PIN_AUTH = { '1234': 'Marcela Duarte' };
+
+function seed() {
+  const plans = [
+    { id: 'p1', name: 'Día', type: 'tiempo', days: 1, visits: null, maxDay: 1, hours: null, price: 15000, pos: 'MEM-DIA', active: true },
+    { id: 'p2', name: 'Semana', type: 'tiempo', days: 7, visits: null, maxDay: 1, hours: null, price: 45000, pos: 'MEM-SEM', active: true },
+    { id: 'p3', name: 'Mensual', type: 'tiempo', days: 30, visits: null, maxDay: 1, hours: null, price: 120000, pos: 'MEM-MES', active: true },
+    { id: 'p4', name: 'Madrugador', type: 'tiempo', days: 30, visits: null, maxDay: 1, hours: [5, 12], price: 89000, pos: 'MEM-MAD', active: true },
+    { id: 'p5', name: 'Trimestral', type: 'tiempo', days: 90, visits: null, maxDay: 2, hours: null, price: 320000, pos: 'MEM-TRI', active: true },
+    { id: 'p6', name: 'Semestral', type: 'tiempo', days: 180, visits: null, maxDay: 2, hours: null, price: 590000, pos: 'MEM-SMS', active: true },
+    { id: 'p7', name: 'Anual', type: 'tiempo', days: 365, visits: null, maxDay: 2, hours: null, price: 1050000, pos: 'MEM-ANU', active: true },
+    { id: 'p8', name: 'Tiquetera 10', type: 'visitas', days: 60, visits: 10, maxDay: 1, hours: null, price: 110000, pos: 'MEM-T10', active: true }
+  ];
+  const C = (id, name, doc, phone, color) => ({ id, code: 'TF-' + String(id).padStart(4, '0'), name, doc, phone, email: name.split(' ')[0].toLowerCase() + '@correo.co', color, consent: { at: '2026-03-02', ver: 'v2.1' }, notes: [] });
+  const customers = [
+    C(1, 'Laura Gómez', '1020456789', '300 111 2233', '#FF8A5B'), C(2, 'Andrés Felipe Rojas', '80123456', '310 222 3344', '#5B8DEF'),
+    C(3, 'Valentina Ríos', '1032488120', '315 333 4455', '#C77DFF'), C(4, 'Carlos Medina', '79555120', '301 444 5566', '#4CC9A0'),
+    C(5, 'Sofía Herrera', '1019876543', '320 555 6677', '#F2A516'), C(6, 'Juan Pablo Castro', '1015332211', '311 666 7788', '#1E9BD7'),
+    C(7, 'Daniela Ospina', '1001234567', '312 777 8899', '#E85D75'), C(8, 'Mateo Vargas', '1023999888', '304 888 9900', '#7A8B99'),
+    C(9, 'Camila Torres', '52888777', '318 999 0011', '#FFB74D'), C(10, 'Santiago Morales', '1030111222', '316 121 3141', '#26A69A'),
+    C(11, 'Isabela Cárdenas', '1018777666', '313 515 1617', '#AB47BC'), C(12, 'Tomás Restrepo', '1000999111', '317 181 9202', '#8D6E63'),
+    C(13, 'Natalia Pérez', '1026444333', '319 212 2232', '#EC407A'), C(14, 'Felipe Ortiz', '80777333', '305 242 5262', '#42A5F5')
+  ];
+  customers[5].notes.push({ at: '2026-11-03', by: 'Marcela Duarte', text: 'Incapacidad médica por esguince. Soporte entregado en recepción.' });
+  const M = (id, cid, planId, start, status, extra = {}) => {
+    const plan = plans.find(p => p.id === planId);
+    return { id, cid, planId, start, end: addDays(start, plan.days - 1), status, used: 0, txId: null, orderId: null, amount: plan.price, ...extra };
+  };
+  const memberships = [
+    M('m1', 1, 'p3', '2026-10-25', 'activa', { txId: 'TX-88301', orderId: 'GYM-0171' }),
+    M('m2', 2, 'p5', '2026-09-01', 'activa', { txId: 'TX-87620', orderId: 'GYM-0102' }),
+    M('m3', 3, 'p3', '2026-10-14', 'activa', { txId: 'TX-88012', orderId: 'GYM-0150' }),
+    M('m4', 4, 'p3', '2026-10-01', 'activa', { txId: 'TX-87911', orderId: 'GYM-0131' }),
+    M('m5', 5, 'p3', '2026-10-10', 'activa', { txId: 'TX-87990', orderId: 'GYM-0144' }),
+    M('m6', 6, 'p6', '2026-07-15', 'congelada', { txId: 'TX-86500', orderId: 'GYM-0041', freeze: { from: '2026-11-03', to: '2026-11-22', reason: 'Incapacidad médica' } }),
+    M('m7', 7, 'p3', '2026-11-10', 'pendiente', { orderId: 'GYM-0203' }),
+    M('m8', 8, 'p8', '2026-10-05', 'activa', { txId: 'TX-87940', orderId: 'GYM-0138', used: 10 }),
+    M('m9', 9, 'p4', '2026-11-01', 'activa', { txId: 'TX-88390', orderId: 'GYM-0180', amount: 89000 }),
+    M('m10', 10, 'p3', '2026-11-02', 'revision', { txId: 'TX-88402', orderId: 'GYM-0184', reviewReason: 'Devolución registrada en el POS (TX-88402)' }),
+    M('m11', 11, 'p7', '2026-02-01', 'activa', { txId: 'TX-80211', orderId: 'GYM-0007' }),
+    M('m13', 13, 'p3', '2026-10-12', 'activa', { txId: 'TX-88005', orderId: 'GYM-0148' }),
+    M('m14', 14, 'p3', '2026-11-09', 'provisional', { orderId: 'GYM-0199', manual: { by: 'Marcela Duarte', at: '2026-11-09 08:12', reason: 'POS sin conexión por caída de internet' } })
+  ];
+  memberships.find(m => m.id === 'm6').end = addDays(memberships.find(m => m.id === 'm6').end, 20);
+  const orders = [
+    { id: 'GYM-0199', cid: 14, mid: 'm14', amount: 120000, status: 'manual', at: '09 nov · 08:12', txId: null },
+    { id: 'GYM-0201', cid: 3, mid: null, amount: 120000, status: 'aprobada', at: '09 nov · 17:40', txId: 'TX-88455', note: 'Venta del 09 nov' },
+    { id: 'GYM-0203', cid: 7, mid: 'm7', amount: 120000, status: 'esperando', at: '10 nov · 18:22', txId: null },
+    { id: 'GYM-0184', cid: 10, mid: 'm10', amount: 120000, status: 'anulada', at: '02 nov · 07:05', txId: 'TX-88402' }
+  ];
+  const events = [
+    { id: 'e1', at: '10 nov · 16:02', tx: 'TX-88455', type: 'pago.aprobado', result: 'procesado', detail: 'GYM-0201 · $120.000 · Tarjeta débito' },
+    { id: 'e2', at: '10 nov · 16:02', tx: 'TX-88455', type: 'pago.aprobado', result: 'duplicado', detail: 'Reenvío del POS ignorado. La membresía no cambió.' },
+    { id: 'e3', at: '09 nov · 21:14', tx: 'TX-88402', type: 'venta.devuelta', result: 'procesado', detail: 'Membresía de Santiago Morales pasa a En revisión' },
+    { id: 'e4', at: '09 nov · 11:47', tx: 'TX-88440', type: 'pago.aprobado', result: 'firma inválida', detail: 'Rechazado (401). Firma HMAC no coincide.' }
+  ];
+  const visits = [
+    { id: 'v1', cid: 1, min: 6 * 60 + 5, method: 'QR', op: 'Julián Arango', result: 'ok', reason: 'Permitido' },
+    { id: 'v2', cid: 9, min: 6 * 60 + 20, method: 'Documento', op: 'Julián Arango', result: 'ok', reason: 'Permitido' },
+    { id: 'v3', cid: 4, min: 7 * 60 + 2, method: 'Documento', op: 'Julián Arango', result: 'rej', reason: 'Membresía vencida el 30 oct 2026' },
+    { id: 'v4', cid: 11, min: 7 * 60 + 15, method: 'QR', op: 'Julián Arango', result: 'ok', reason: 'Permitido' },
+    { id: 'v5', cid: 2, min: 17 * 60 + 48, method: 'Código', op: 'Julián Arango', result: 'ok', reason: 'Permitido' },
+    { id: 'v6', cid: 13, min: 18 * 60 + 3, method: 'QR', op: 'Julián Arango', result: 'ok', reason: 'Permitido · vence hoy' }
+  ];
+  const products = [
+    { sku: 'BEB-001', name: 'Agua 600 ml', cat: 'Bebidas', price: 3000, tax: 'IVA 19 %', stock: 64, min: 24 },
+    { sku: 'BEB-004', name: 'Bebida isotónica 500 ml', cat: 'Bebidas', price: 6500, tax: 'IVA 19 %', stock: 31, min: 12 },
+    { sku: 'SUP-010', name: 'Proteína Whey 2 lb', cat: 'Suplementos', price: 189000, tax: 'IVA 19 %', stock: 3, min: 5 },
+    { sku: 'SUP-014', name: 'Creatina monohidratada 300 g', cat: 'Suplementos', price: 119000, tax: 'IVA 19 %', stock: 9, min: 4 },
+    { sku: 'SUP-020', name: 'Barra de proteína', cat: 'Suplementos', price: 7500, tax: 'IVA 19 %', stock: 2, min: 10 },
+    { sku: 'ACC-002', name: 'Guantes de entrenamiento', cat: 'Accesorios', price: 55000, tax: 'IVA 19 %', stock: 12, min: 4 },
+    { sku: 'ACC-005', name: 'Toalla de microfibra', cat: 'Accesorios', price: 25000, tax: 'IVA 19 %', stock: 18, min: 6 },
+    { sku: 'ACC-007', name: 'Shaker 700 ml', cat: 'Accesorios', price: 22000, tax: 'IVA 19 %', stock: 7, min: 5 }
+  ];
+  const recon = [
+    { id: 'r1', type: 'AMOUNT_DIFF', tx: 'TX-88390', order: 'GYM-0180', cid: 9, gym: 89000, pos: 79000, status: 'abierta', note: 'Descuento aplicado en el POS sin autorización registrada' },
+    { id: 'r2', type: 'ONLY_POS', tx: 'TX-88431', order: '—', cid: null, gym: 0, pos: 120000, status: 'abierta', note: 'Venta de MEM-MES sin referencia GYM' },
+    { id: 'r3', type: 'PROVISIONAL_UNLINKED', tx: '—', order: 'GYM-0199', cid: 14, gym: 120000, pos: 0, status: 'abierta', note: 'Activación manual del 09 nov sin transacción' },
+    { id: 'r4', type: 'MATCHED', tx: 'TX-88455', order: 'GYM-0201', cid: 3, gym: 120000, pos: 120000, status: 'conciliada', note: '' }
+  ];
+  const audit = [
+    { at: '10 nov · 16:02', user: 'Sistema POS', action: 'Evento duplicado ignorado', entity: 'TX-88455', before: '—', after: '—', reason: 'Idempotencia por ID de transacción' },
+    { at: '09 nov · 21:14', user: 'Sistema POS', action: 'Membresía a En revisión', entity: 'Santiago Morales · m10', before: 'Activa', after: 'En revisión', reason: 'Devolución TX-88402' },
+    { at: '09 nov · 08:12', user: 'Marcela Duarte', action: 'Activación manual provisional', entity: 'Felipe Ortiz · m14', before: 'Pendiente', after: 'Activa (provisional)', reason: 'POS sin conexión por caída de internet' },
+    { at: '03 nov · 10:30', user: 'Marcela Duarte', action: 'Congelar membresía', entity: 'Juan Pablo Castro · m6', before: 'Activa', after: 'Congelada (20 días)', reason: 'Incapacidad médica' },
+    { at: '01 nov · 09:00', user: 'Ana Lucía Prieto', action: 'Cambio de parámetro', entity: 'Días de gracia', before: '0', after: '2', reason: 'Política aprobada por gerencia' }
+  ];
+  const settings = { grace: 2, aviso: 7, reentry: 15, startOn: 'pago', freezeMin: 7, freezeMax: 30, freezeYear: 2, open: [5, 22], gymName: 'Titán Fitness Club', sede: 'Sede Chapinero', address: 'Cra. 13 # 54-21, Bogotá', phone: '601 745 8899', posLevel: 'A' };
+  return { plans, customers, memberships, orders, events, visits, products, recon, audit, settings, seq: { order: 204, tx: 88460, m: 15, c: 15, v: 7, e: 5 } };
+}
+
+/* ---------- Reglas de negocio ---------- */
+const planOf = (db, m) => db.plans.find(p => p.id === m.planId);
+function memState(db, m) {
+  if (!m) return { key: 'sin' };
+  if (['pendiente', 'congelada', 'revision', 'cancelada', 'reemplazada'].includes(m.status)) return { key: m.status };
+  const plan = planOf(db, m);
+  if (m.start > TODAY) return { key: 'programada' };
+  if (plan.type === 'visitas' && m.used >= plan.visits) return { key: 'agotada' };
+  const left = diff(m.end, TODAY);
+  if (left < 0) return -left <= db.settings.grace ? { key: 'gracia', k: -left } : { key: 'vencida' };
+  if (m.status === 'provisional') return { key: 'provisional', left };
+  if (left <= db.settings.aviso) return { key: 'porvencer', left };
+  return { key: 'activa', left };
+}
+function currentMem(db, cid) {
+  const live = db.memberships.filter(m => m.cid === cid && m.status !== 'reemplazada').sort((a, b) => b.start.localeCompare(a.start));
+  const covering = live.find(m => m.start <= TODAY);
+  return covering || live[0] || null;
+}
+const nextMem = (db, cid) => db.memberships.find(m => m.cid === cid && m.start > TODAY && m.status === 'activa');
+
+const STATE = {
+  activa: { label: 'Activa', c: 'success', icon: 'check_circle' },
+  porvencer: { label: 'Por vencer', c: 'warning', icon: 'schedule' },
+  gracia: { label: 'En gracia', c: 'warning', icon: 'hourglass_bottom' },
+  vencida: { label: 'Vencida', c: 'error', icon: 'event_busy' },
+  congelada: { label: 'Congelada', c: 'info', icon: 'ac_unit' },
+  pendiente: { label: 'Pago pendiente', c: 'warning', icon: 'pending' },
+  revision: { label: 'En revisión', c: 'error', icon: 'report' },
+  cancelada: { label: 'Cancelada', c: 'default', icon: 'block' },
+  reemplazada: { label: 'Reemplazada', c: 'default', icon: 'swap_horiz' },
+  agotada: { label: 'Sin accesos', c: 'error', icon: 'confirmation_number' },
+  provisional: { label: 'Activa (provisional)', c: 'warning', icon: 'bolt' },
+  programada: { label: 'Programada', c: 'info', icon: 'event_upcoming' },
+  sin: { label: 'Sin membresía', c: 'default', icon: 'person_off' }
+};
+
+function evaluateAccess(db, cid, nowMin) {
+  const m = currentMem(db, cid);
+  const st = memState(db, m);
+  const no = reason => ({ ok: false, reason, m, st });
+  if (!m) return no('El cliente no tiene membresía');
+  const plan = planOf(db, m);
+  if (st.key === 'pendiente') return no(`Pago pendiente de confirmación en el POS (orden ${m.orderId})`);
+  if (st.key === 'congelada') return no(`Membresía congelada hasta el ${fdate(m.freeze?.to)}`);
+  if (st.key === 'revision') return no('Membresía en revisión por anulación o devolución en el POS');
+  if (st.key === 'cancelada') return no('Membresía cancelada');
+  if (st.key === 'vencida') return no(`Membresía vencida el ${fdate(m.end)}`);
+  if (st.key === 'agotada') return no(`Sin accesos disponibles (${m.used} de ${plan.visits} usados)`);
+  if (st.key === 'programada') return no(`Su membresía inicia el ${fdate(m.start)}`);
+  const [o, c] = db.settings.open;
+  if (nowMin < o * 60 || nowMin >= c * 60) return no(`Sede cerrada (horario ${hm(o * 60)}–${hm(c * 60)})`);
+  if (plan.hours && (nowMin < plan.hours[0] * 60 || nowMin >= plan.hours[1] * 60)) return no(`Fuera del horario del plan ${plan.name} (${hm(plan.hours[0] * 60)}–${hm(plan.hours[1] * 60)})`);
+  const today = db.visits.filter(v => v.cid === cid && v.result !== 'rej');
+  const last = today[today.length - 1];
+  if (last && nowMin - last.min <= db.settings.reentry) return { ok: true, reentry: true, reason: `Reingreso (dentro de ${db.settings.reentry} min). No descuenta acceso.`, m, st };
+  const counted = today.filter(v => !v.reentry).length;
+  if (counted >= plan.maxDay) return no(`Ya registró ${counted} ingreso${counted > 1 ? 's' : ''} hoy (máximo ${plan.maxDay} con su plan)`);
+  if (st.key === 'gracia') return { ok: true, warn: `En período de gracia (${st.k} de ${db.settings.grace} días). Recuérdele renovar.`, reason: 'Permitido en gracia', m, st };
+  if (st.key === 'provisional') return { ok: true, warn: 'Activación provisional: falta vincular el pago del POS.', reason: 'Permitido · provisional', m, st };
+  if (st.key === 'porvencer') return { ok: true, warn: st.left === 0 ? 'Vence hoy. Ofrézcale renovar.' : `Vence en ${st.left} día${st.left > 1 ? 's' : ''}.`, reason: 'Permitido', m, st };
+  return { ok: true, reason: 'Permitido', m, st };
+}
+
+function renewalStart(db, cid) {
+  const m = currentMem(db, cid); const st = memState(db, m);
+  if (m && ['activa', 'porvencer', 'provisional'].includes(st.key) && m.end >= TODAY) return addDays(m.end, 1);
+  return TODAY;
+}
+
+/* ---------- Componentes base ---------- */
+const I = ({ n, fill, sx, ...p }) => <Icon baseClassName="material-symbols-rounded" className={fill ? 'fill' : undefined} sx={{ fontSize: 22, ...sx }} {...p}>{n}</Icon>;
+
+function StateChip({ k, size = 'small' }) {
+  const s = STATE[k] || STATE.sin; const t = useTheme();
+  const col = s.c === 'default' ? t.palette.text.secondary : t.palette[s.c].main;
+  return <Chip size={size} icon={<I n={s.icon} sx={{ fontSize: 16, color: `${col} !important` }} />} label={s.label}
+    sx={{ bgcolor: alpha(col, t.palette.mode === 'dark' ? .2 : .12), color: t.palette.mode === 'dark' ? lighten(col, .35) : darken(col, .35), border: `1px solid ${alpha(col, .3)}` }} />;
+}
+function CAvatar({ c, size = 40 }) {
+  return <Avatar sx={{ width: size, height: size, bgcolor: c.color, color: '#15120F', fontWeight: 800, fontSize: size * .38, fontFamily: 'var(--f-display)' }}>{initials(c.name)}</Avatar>;
+}
+function PageHead({ eyebrow, title, sub, action }) {
+  return (
+    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'flex-end' }} justifyContent="space-between" sx={{ mb: 3 }}>
+      <Box sx={{ minWidth: 0 }}>
+        {eyebrow && <Typography variant="overline" color="text.secondary">{eyebrow}</Typography>}
+        <Typography variant="h4" component="h1">{title}</Typography>
+        {sub && <Typography color="text.secondary" sx={{ mt: .5, maxWidth: '70ch' }}>{sub}</Typography>}
+      </Box>
+      {action && <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>{action}</Stack>}
+    </Stack>
+  );
+}
+function Kpi({ icon, label, value, hint, color = 'primary', onClick }) {
+  const t = useTheme(); const col = t.palette[color]?.main || t.palette.primary.main;
+  return (
+    <Card sx={{ height: '100%', cursor: onClick ? 'pointer' : 'default', transition: '.15s', '&:hover': onClick ? { borderColor: col } : {} }} onClick={onClick}>
+      <CardContent sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+        <Box sx={{ width: 40, height: 40, borderRadius: 2, display: 'grid', placeItems: 'center', bgcolor: alpha(col, .14), color: t.palette.mode === 'dark' ? lighten(col, .2) : darken(col, .2), flexShrink: 0 }}><I n={icon} fill /></Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="body2" color="text.secondary" fontWeight={600}>{label}</Typography>
+          <Typography className="num" sx={{ fontFamily: 'var(--f-display)', fontWeight: 800, fontSize: 30, lineHeight: 1.1 }}>{value}</Typography>
+          {hint && <Typography variant="caption" color="text.secondary">{hint}</Typography>}
+        </Box>
+      </CardContent>
+    </Card>
+  );
+}
+function SectionCard({ title, icon, action, children, sx }) {
+  return (
+    <Card sx={sx}>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 2, pt: 1.75, pb: 1 }}>
+        {icon && <I n={icon} sx={{ color: 'text.secondary', fontSize: 20 }} />}
+        <Typography variant="h6" sx={{ flex: 1, fontSize: 19 }}>{title}</Typography>
+        {action}
+      </Stack>
+      {children}
+    </Card>
+  );
+}
+function Empty({ icon, text }) {
+  return <Stack alignItems="center" spacing={1} sx={{ py: 4, color: 'text.secondary' }}><I n={icon} sx={{ fontSize: 34 }} /><Typography variant="body2">{text}</Typography></Stack>;
+}
+
+/* ---------- Diálogos reutilizables ---------- */
+function ReasonDialog({ open, title, text, confirm = 'Confirmar', color = 'primary', pin, onClose, onSubmit }) {
+  const [r, setR] = useState(''); const [p, setP] = useState(''); const [err, setErr] = useState('');
+  useEffect(() => { if (open) { setR(''); setP(''); setErr(''); } }, [open]);
+  const go = () => {
+    if (r.trim().length < 5) return setErr('Escriba un motivo de al menos 5 caracteres.');
+    if (pin && !PIN_AUTH[p]) return setErr('PIN incorrecto. Pida a un usuario autorizado que lo ingrese (demo: 1234).');
+    onSubmit(r.trim(), pin ? PIN_AUTH[p] : null);
+  };
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="xs">
+      <DialogTitle sx={{ fontFamily: 'var(--f-display)', fontWeight: 800 }}>{title}</DialogTitle>
+      <DialogContent>
+        {text && <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{text}</Typography>}
+        <Stack spacing={2}>
+          {pin && <TextField id="pin-autoriza" label="PIN del autorizador" type="password" value={p} onChange={e => setP(e.target.value)} inputProps={{ inputMode: 'numeric', maxLength: 6 }} helperText="Usted no tiene este permiso: un usuario de gerencia debe ingresar su PIN." />}
+          <TextField id="motivo" label="Motivo" multiline minRows={2} value={r} onChange={e => setR(e.target.value)} autoFocus={!pin} />
+          {err && <Alert severity="error">{err}</Alert>}
+          <Typography variant="caption" color="text.secondary">Esta acción queda registrada en la auditoría con su usuario y el motivo.</Typography>
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose}>Cancelar</Button>
+        <Button variant="contained" color={color} onClick={go}>{confirm}</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+/* ---------- Venta de membresía (inscripción / renovación) ---------- */
+function SellDialog({ ctx, cid, onClose }) {
+  const { db } = ctx;
+  const c = db.customers.find(x => x.id === cid);
+  const cur = currentMem(db, cid);
+  const [planId, setPlanId] = useState(cur ? cur.planId : 'p3');
+  const [orderId, setOrderId] = useState(null);
+  const [manual, setManual] = useState(false);
+  const plan = db.plans.find(p => p.id === planId);
+  const start = renewalStart(db, cid);
+  const end = addDays(start, plan.days - 1);
+  const chained = start !== TODAY;
+  const order = orderId && db.orders.find(o => o.id === orderId);
+  const mem = order && db.memberships.find(m => m.id === order.mid);
+  const can = ctx.can('membresia.activacion_manual');
+
+  const send = () => setOrderId(ctx.createOrder(cid, planId, start));
+  return (
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm" fullScreen={ctx.mobile}>
+      <DialogTitle sx={{ fontFamily: 'var(--f-display)', fontWeight: 800 }}>{cur ? 'Renovar membresía' : 'Inscribir cliente'} · {c.name}</DialogTitle>
+      <DialogContent dividers>
+        {!order && <>
+          <Typography variant="overline" color="text.secondary">1. Elija el plan</Typography>
+          <Grid container spacing={1} sx={{ mb: 2 }}>
+            {db.plans.filter(p => p.active).map(p => (
+              <Grid item xs={6} sm={3} key={p.id}>
+                <Card onClick={() => setPlanId(p.id)} role="button" tabIndex={0} onKeyDown={e => e.key === 'Enter' && setPlanId(p.id)}
+                  sx={{ cursor: 'pointer', p: 1.25, height: '100%', borderColor: p.id === planId ? 'primary.main' : 'divider', borderWidth: 2, bgcolor: p.id === planId ? t => alpha(t.palette.primary.main, .08) : 'background.paper' }}>
+                  <Typography fontWeight={700} sx={{ fontFamily: 'var(--f-display)', fontSize: 17 }}>{p.name}</Typography>
+                  <Typography variant="body2" className="num">{fmt(p.price)}</Typography>
+                  <Typography variant="caption" color="text.secondary">{p.type === 'visitas' ? `${p.visits} visitas` : `${p.days} día${p.days > 1 ? 's' : ''}`}{p.hours ? ` · ${p.hours[0]}–${p.hours[1]} h` : ''}</Typography>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+          <Typography variant="overline" color="text.secondary">2. Revise la vigencia</Typography>
+          <Card sx={{ p: 2, mb: 2 }}>
+            <Stack direction="row" spacing={3} flexWrap="wrap" useFlexGap>
+              <Box><Typography variant="caption" color="text.secondary">Inicia</Typography><Typography fontWeight={700}>{fdate(start)}</Typography></Box>
+              <Box><Typography variant="caption" color="text.secondary">Vence</Typography><Typography fontWeight={700}>{fdate(end)}</Typography></Box>
+              <Box><Typography variant="caption" color="text.secondary">Artículo POS</Typography><Typography fontWeight={700} sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>{plan.pos}</Typography></Box>
+              <Box><Typography variant="caption" color="text.secondary">Precio de referencia</Typography><Typography fontWeight={700} className="num">{fmt(plan.price)}</Typography></Box>
+            </Stack>
+            {chained && <Alert severity="info" sx={{ mt: 1.5 }}>La membresía actual sigue vigente hasta el {fdate(cur.end)}. La renovación se encadena desde el día siguiente (RN-04), así el cliente no pierde días pagados.</Alert>}
+          </Card>
+          <Alert severity="warning" icon={<I n="point_of_sale" />}>La membresía queda <b>Pendiente</b> hasta que el POS confirme el pago aprobado. El precio que manda es el que cobra el POS.</Alert>
+        </>}
+        {order && <Stack spacing={2} sx={{ animation: 'pop .25s ease-out' }}>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <I n={order.status === 'aprobada' ? 'task_alt' : order.status === 'reintentando' ? 'sync_problem' : order.status === 'rechazada' ? 'credit_card_off' : 'hourglass_top'} sx={{ fontSize: 40, color: order.status === 'aprobada' ? 'success.main' : order.status === 'rechazada' ? 'error.main' : 'warning.main' }} />
+            <Box>
+              <Typography variant="h5">{order.status === 'aprobada' ? 'Pago aprobado. Membresía activa.' : order.status === 'rechazada' ? 'El POS rechazó el pago' : order.status === 'reintentando' ? 'El POS no responde' : order.status === 'manual' ? 'Activada en modo provisional' : 'Esperando el pago en el POS'}</Typography>
+              <Typography variant="body2" color="text.secondary">Orden <b>{order.id}</b> · {fmt(order.amount)} · {plan.pos}</Typography>
+            </Box>
+          </Stack>
+          {order.status === 'esperando' && <Alert severity="info">Cobre en el POS. Si el POS no recibe la orden automáticamente, digite la referencia <b>{order.id}</b> en la venta.</Alert>}
+          {order.status === 'reintentando' && <Alert severity="warning">Reintentando con espera progresiva (1 s, 5 s, 30 s, 2 min, 10 min). La orden quedó visible en Recepción como "Requiere atención".</Alert>}
+          {order.status === 'aprobada' && mem && <Alert severity="success">Transacción {order.txId} · vigencia {fdate(mem.start)} → {fdate(mem.end)}. Entregue al cliente su código <b>{c.code}</b> para el ingreso.</Alert>}
+          {order.status === 'manual' && <Alert severity="warning">La membresía quedó "Activa (provisional)". Si en 24 horas no se vincula un pago aprobado, aparecerá en Conciliación.</Alert>}
+          <Card sx={{ p: 2, bgcolor: t => alpha(t.palette.secondary.main, t.palette.mode === 'dark' ? .5 : .04) }}>
+            <Typography variant="overline" color="text.secondary">Simulador del POS (solo maqueta)</Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+              <Button size="small" variant="contained" color="success" disabled={!['esperando'].includes(order.status)} onClick={() => ctx.approveOrder(order.id)} startIcon={<I n="check" />}>Aprobar pago</Button>
+              <Button size="small" variant="outlined" color="error" disabled={order.status !== 'esperando'} onClick={() => ctx.rejectOrder(order.id)} startIcon={<I n="close" />}>Rechazar pago</Button>
+              <Button size="small" variant="outlined" disabled={order.status !== 'aprobada'} onClick={() => ctx.resendOrder(order.id)} startIcon={<I n="replay" />}>Reenviar confirmación</Button>
+            </Stack>
+          </Card>
+        </Stack>}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 1.5, flexWrap: 'wrap', gap: 1 }}>
+        {!order && can && <Button color="warning" onClick={() => setManual(true)} startIcon={<I n="bolt" />} sx={{ mr: 'auto' }}>Activación manual (POS caído)</Button>}
+        <Button onClick={onClose}>{order ? 'Cerrar' : 'Cancelar'}</Button>
+        {!order && <Button variant="contained" onClick={send} startIcon={<I n="point_of_sale" />}>Enviar cobro al POS</Button>}
+      </DialogActions>
+      <ReasonDialog open={manual} title="Activación manual excepcional" color="warning" confirm="Activar provisional"
+        text="Use esto solo si el POS está caído. La membresía queda provisional y debe vincularse a un pago en 24 horas (RN-10)."
+        onClose={() => setManual(false)} onSubmit={r => { setManual(false); setOrderId(ctx.manualActivate(cid, planId, start, r)); }} />
+    </Dialog>
+  );
+}
+
+/* ---------- Ficha del cliente ---------- */
+function CustomerDialog({ ctx, cid, onClose }) {
+  const { db } = ctx;
+  const c = db.customers.find(x => x.id === cid);
+  const [tab, setTab] = useState(0);
+  const [freeze, setFreeze] = useState(false);
+  const [days, setDays] = useState(15);
+  const [note, setNote] = useState('');
+  if (!c) return null;
+  const m = currentMem(db, cid); const st = memState(db, m); const plan = m && planOf(db, m);
+  const nx = nextMem(db, cid);
+  const hist = db.memberships.filter(x => x.cid === cid).sort((a, b) => b.start.localeCompare(a.start));
+  const pays = db.orders.filter(o => o.cid === cid);
+  const vis = db.visits.filter(v => v.cid === cid).slice().reverse();
+  return (
+    <Dialog open onClose={onClose} fullWidth maxWidth="md" fullScreen={ctx.mobile}>
+      <DialogTitle component="div" sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        <CAvatar c={c} size={56} />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="h5" noWrap>{c.name}</Typography>
+          <Typography variant="body2" color="text.secondary">CC {c.doc} · {c.code} · {c.phone}</Typography>
+        </Box>
+        <StateChip k={st.key} size="medium" />
+        <IconButton onClick={onClose} aria-label="Cerrar"><I n="close" /></IconButton>
+      </DialogTitle>
+      <Tabs value={tab} onChange={(e, v) => setTab(v)} variant="scrollable" sx={{ px: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Tab label="Membresía" /><Tab label={`Pagos (${pays.length})`} /><Tab label={`Visitas hoy (${vis.length})`} /><Tab label="Datos y notas" />
+      </Tabs>
+      <DialogContent sx={{ minHeight: 300 }}>
+        {tab === 0 && <Stack spacing={2}>
+          {m ? <Card sx={{ p: 2 }}>
+            <Grid container spacing={2}>
+              {[['Plan', plan.name], ['Inicio', fdate(m.start)], ['Vencimiento', fdate(m.end)], ['Accesos', plan.type === 'visitas' ? `${plan.visits - m.used} de ${plan.visits}` : 'Ilimitados'], ['Horario', plan.hours ? `${hm(plan.hours[0] * 60)}–${hm(plan.hours[1] * 60)}` : 'Todo el horario'], ['Transacción POS', m.txId || '—']].map(([k, v]) =>
+                <Grid item xs={6} sm={4} key={k}><Typography variant="caption" color="text.secondary">{k}</Typography><Typography fontWeight={700} className="num">{v}</Typography></Grid>)}
+            </Grid>
+            {m.freeze && m.status === 'congelada' && <Alert severity="info" sx={{ mt: 2 }}>Congelada del {fdate(m.freeze.from)} al {fdate(m.freeze.to)} · {m.freeze.reason}. El vencimiento ya incluye los días congelados.</Alert>}
+            {m.status === 'revision' && <Alert severity="error" sx={{ mt: 2 }}>{m.reviewReason}. Gerencia debe decidir si revierte o mantiene.</Alert>}
+            {m.manual && <Alert severity="warning" sx={{ mt: 2 }}>Activación manual por {m.manual.by} ({m.manual.at}): {m.manual.reason}</Alert>}
+            {nx && <Alert severity="success" sx={{ mt: 2 }}>Renovación pagada y programada: {fdate(nx.start)} → {fdate(nx.end)}.</Alert>}
+          </Card> : <Empty icon="person_off" text="Sin membresía. Inscríbalo para que pueda ingresar." />}
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Button variant="contained" startIcon={<I n="autorenew" />} onClick={() => ctx.openSell(cid)}>{m ? 'Renovar' : 'Inscribir'}</Button>
+            <Button variant="outlined" startIcon={<I n="login" />} onClick={() => { ctx.checkin(cid, 'Búsqueda'); onClose(); ctx.go('recepcion'); }}>Registrar ingreso</Button>
+            {m && ['activa', 'porvencer'].includes(st.key) && ctx.can('membresia.congelar') && <Button variant="outlined" color="info" startIcon={<I n="ac_unit" />} onClick={() => setFreeze(true)}>Congelar</Button>}
+            {m && st.key === 'congelada' && ctx.can('membresia.congelar') && <Button variant="outlined" color="info" startIcon={<I n="play_arrow" />} onClick={() => ctx.resume(m.id)}>Reanudar</Button>}
+            {m && st.key === 'revision' && ctx.can('pos.ajuste_anulacion') && <Button variant="outlined" color="error" startIcon={<I n="gavel" />} onClick={() => ctx.openReview(m.id)}>Resolver revisión</Button>}
+          </Stack>
+          <Typography variant="overline" color="text.secondary">Historial de membresías</Typography>
+          <TableContainer><Table size="small">
+            <TableHead><TableRow><TableCell>Plan</TableCell><TableCell>Vigencia</TableCell><TableCell>Estado</TableCell><TableCell>Orden</TableCell></TableRow></TableHead>
+            <TableBody>{hist.map(h => <TableRow key={h.id}><TableCell>{planOf(db, h).name}</TableCell><TableCell className="num">{fdate(h.start)} → {fdate(h.end)}</TableCell><TableCell><StateChip k={memState(db, h).key} /></TableCell><TableCell>{h.orderId || '—'}</TableCell></TableRow>)}
+              {!hist.length && <TableRow><TableCell colSpan={4}>Sin historial</TableCell></TableRow>}</TableBody>
+          </Table></TableContainer>
+        </Stack>}
+        {tab === 1 && (pays.length ? <TableContainer><Table size="small">
+          <TableHead><TableRow><TableCell>Orden</TableCell><TableCell>Transacción POS</TableCell><TableCell>Fecha</TableCell><TableCell align="right">Valor</TableCell><TableCell>Estado</TableCell></TableRow></TableHead>
+          <TableBody>{pays.map(o => <TableRow key={o.id}><TableCell>{o.id}</TableCell><TableCell>{o.txId || '—'}</TableCell><TableCell>{o.at}</TableCell><TableCell align="right" className="num">{fmt(o.amount)}</TableCell><TableCell><OrderChip s={o.status} /></TableCell></TableRow>)}</TableBody>
+        </Table></TableContainer> : <Empty icon="receipt_long" text="Sin pagos vinculados" />)}
+        {tab === 2 && (vis.length ? <List dense>{vis.map(v => <VisitRow key={v.id} ctx={ctx} v={v} hideName />)}</List> : <Empty icon="directions_walk" text="Sin visitas hoy" />)}
+        {tab === 3 && <Stack spacing={2}>
+          <Grid container spacing={2}>
+            {[['Documento', 'CC ' + c.doc], ['Teléfono', c.phone], ['Correo', c.email], ['Tratamiento de datos', `Aceptado ${fdate(c.consent.at)} · aviso ${c.consent.ver}`]].map(([k, v]) =>
+              <Grid item xs={12} sm={6} key={k}><Typography variant="caption" color="text.secondary">{k}</Typography><Typography fontWeight={600}>{v}</Typography></Grid>)}
+          </Grid>
+          <Divider />
+          <Typography variant="overline" color="text.secondary">Observaciones administrativas</Typography>
+          {c.notes.map((n, i) => <Alert key={i} severity="info" icon={<I n="sticky_note_2" />}><b>{n.by}</b> · {fdate(n.at)} — {n.text}</Alert>)}
+          <Stack direction="row" spacing={1}>
+            <TextField id="nueva-nota" size="small" fullWidth placeholder="Agregar observación" value={note} onChange={e => setNote(e.target.value)} />
+            <Button variant="outlined" disabled={note.trim().length < 3} onClick={() => { ctx.addNote(cid, note.trim()); setNote(''); }}>Agregar</Button>
+          </Stack>
+        </Stack>}
+      </DialogContent>
+      <Dialog open={freeze} onClose={() => setFreeze(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'var(--f-display)', fontWeight: 800 }}>Congelar membresía</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Entre {db.settings.freezeMin} y {db.settings.freezeMax} días, máximo {db.settings.freezeYear} veces al año (RN-07). El vencimiento se corre por los días congelados.</Typography>
+          <TextField id="dias-congelar" type="number" label="Días" fullWidth value={days} onChange={e => setDays(+e.target.value)} inputProps={{ min: db.settings.freezeMin, max: db.settings.freezeMax }}
+            error={days < db.settings.freezeMin || days > db.settings.freezeMax} helperText={m ? `Nuevo vencimiento: ${fdate(addDays(m.end, days || 0))}` : ''} />
+        </DialogContent>
+        <DialogActions><Button onClick={() => setFreeze(false)}>Cancelar</Button>
+          <Button variant="contained" color="info" disabled={days < db.settings.freezeMin || days > db.settings.freezeMax} onClick={() => { setFreeze(false); ctx.askReason({ title: 'Motivo de la congelación', confirm: 'Congelar', color: 'info', onSubmit: r => ctx.freeze(m.id, days, r) }); }}>Continuar</Button>
+        </DialogActions>
+      </Dialog>
+    </Dialog>
+  );
+}
+
+function OrderChip({ s }) {
+  const map = { esperando: ['Esperando pago', 'warning'], aprobada: ['Aprobada', 'success'], rechazada: ['Rechazada', 'error'], anulada: ['Anulada / devuelta', 'error'], reintentando: ['Requiere atención', 'warning'], manual: ['Manual provisional', 'warning'] };
+  const [l, c] = map[s] || [s, 'default']; const t = useTheme(); const col = t.palette[c]?.main || t.palette.text.secondary;
+  return <Chip size="small" label={l} sx={{ bgcolor: alpha(col, .14), color: t.palette.mode === 'dark' ? lighten(col, .35) : darken(col, .35) }} />;
+}
+
+function VisitRow({ ctx, v, hideName }) {
+  const c = ctx.db.customers.find(x => x.id === v.cid);
+  const col = v.result === 'ok' ? 'success.main' : v.result === 'exc' ? 'warning.main' : 'error.main';
+  return (
+    <ListItemButton onClick={() => ctx.openCustomer(v.cid)} sx={{ borderRadius: 2 }}>
+      <ListItemIcon sx={{ minWidth: 44 }}>{hideName ? <I n={v.result === 'rej' ? 'block' : 'login'} sx={{ color: col }} /> : <CAvatar c={c} size={32} />}</ListItemIcon>
+      <ListItemText primary={<Stack direction="row" spacing={1} alignItems="center"><span>{hideName ? (v.result === 'ok' ? 'Ingreso permitido' : v.result === 'exc' ? 'Ingreso por excepción' : 'Ingreso rechazado') : c.name}</span></Stack>}
+        secondary={`${v.reason} · ${v.method} · ${v.op}`} primaryTypographyProps={{ fontWeight: 600 }} secondaryTypographyProps={{ noWrap: true }} />
+      <Stack alignItems="flex-end" sx={{ ml: 1 }}>
+        <Typography className="num" fontWeight={700}>{hm(v.min)}</Typography>
+        <Box sx={{ width: 8, height: 8, borderRadius: 4, bgcolor: col }} />
+      </Stack>
+    </ListItemButton>
+  );
+}
+
+/* ---------- Recepción ---------- */
+function Recepcion({ ctx }) {
+  const { db } = ctx; const t = useTheme();
+  const [q, setQ] = useState('');
+  const inputRef = useRef(null);
+  const res = ctx.lastCheck;
+  const matches = useMemo(() => {
+    const s = q.trim().toLowerCase(); if (s.length < 3) return [];
+    return db.customers.filter(c => c.name.toLowerCase().includes(s) || c.doc.includes(s) || c.code.toLowerCase().includes(s) || c.phone.replace(/\s/g, '').includes(s.replace(/\s/g, ''))).slice(0, 5);
+  }, [q, db.customers]);
+  const submit = e => {
+    e.preventDefault();
+    const s = q.trim(); if (!s) return;
+    const exact = db.customers.find(c => c.doc === s.replace(/\D/g, '') || c.code.toLowerCase() === s.toLowerCase());
+    const pick = exact || (matches.length === 1 ? matches[0] : null);
+    if (!pick) return ctx.notify(matches.length ? 'Hay varios resultados: elija el cliente de la lista.' : 'No encontramos ese cliente. Revise el dato o regístrelo.', 'warning');
+    ctx.checkin(pick.id, exact ? (/^tf-/i.test(s) ? 'Código / QR' : 'Documento') : 'Búsqueda');
+    setQ(''); inputRef.current?.focus();
+  };
+  const ordersWaiting = db.orders.filter(o => ['esperando', 'reintentando'].includes(o.status));
+  const soon = db.customers.map(c => ({ c, m: currentMem(db, c.id) })).filter(x => x.m && ['porvencer', 'gracia'].includes(memState(db, x.m).key) && !nextMem(db, x.c.id)).sort((a, b) => a.m.end.localeCompare(b.m.end));
+  const alerts = [
+    ...db.memberships.filter(m => m.status === 'revision').map(m => ({ icon: 'report', sev: 'error', text: `${db.customers.find(c => c.id === m.cid).name}: ${m.reviewReason}`, act: ctx.can('pos.ajuste_anulacion') ? () => ctx.openReview(m.id) : () => ctx.openCustomer(m.cid) })),
+    ...db.memberships.filter(m => m.status === 'provisional').map(m => ({ icon: 'bolt', sev: 'warning', text: `${db.customers.find(c => c.id === m.cid).name}: activación provisional sin pago POS`, act: () => ctx.openCustomer(m.cid) })),
+    ...(ctx.posDown ? [{ icon: 'cloud_off', sev: 'warning', text: 'POS sin conexión: los cobros quedan en reintento. El ingreso funciona normal.', act: () => ctx.go('pos') }] : [])
+  ];
+  const todayOk = db.visits.filter(v => v.result !== 'rej').length;
+  const lastVisits = db.visits.slice(-8).reverse();
+  const okCol = t.palette.accent.main;
+  return (
+    <>
+      <PageHead eyebrow={`${db.settings.sede} · martes ${fdate(TODAY)}`} title="Recepción" sub="Digite el documento, el código o lea el QR del cliente y presione Enter."
+        action={<><Button variant="outlined" startIcon={<I n="person_add" />} onClick={ctx.openNewCustomer}>Nuevo cliente</Button><Button variant="contained" startIcon={<I n="group" />} onClick={() => ctx.go('clientes')}>Buscar clientes</Button></>} />
+      <Grid container spacing={2.5}>
+        <Grid item xs={12} md={7}>
+          <Card sx={{ p: { xs: 2, sm: 2.5 } }}>
+            <form onSubmit={submit} autoComplete="off">
+              <TextField id="checkin" inputRef={inputRef} autoFocus fullWidth value={q} onChange={e => setQ(e.target.value)} placeholder="Documento, código TF-0001, QR o nombre"
+                InputProps={{ startAdornment: <InputAdornment position="start"><I n="qr_code_scanner" /></InputAdornment>, endAdornment: <InputAdornment position="end"><Button type="submit" variant="contained" size="large">Registrar ingreso</Button></InputAdornment>, sx: { fontSize: 18, py: .5, pr: .5 } }} />
+            </form>
+            {matches.length > 0 && <List dense sx={{ mt: 1, border: 1, borderColor: 'divider', borderRadius: 2 }}>
+              {matches.map(c => <ListItemButton key={c.id} onClick={() => { ctx.checkin(c.id, 'Búsqueda'); setQ(''); }}>
+                <ListItemIcon sx={{ minWidth: 44 }}><CAvatar c={c} size={30} /></ListItemIcon>
+                <ListItemText primary={c.name} secondary={`CC ${c.doc} · ${c.code}`} />
+                <StateChip k={memState(db, currentMem(db, c.id)).key} />
+              </ListItemButton>)}
+            </List>}
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>Pruebe:</Typography>
+              {[['80123456', 'Activa'], ['1032488120', 'Por vencer'], ['TF-0001', 'Ya ingresó hoy'], ['TF-0004', 'Vencida'], ['TF-0005', 'En gracia'], ['TF-0009', 'Fuera de horario'], ['TF-0006', 'Congelada'], ['TF-0008', 'Sin accesos'], ['TF-0007', 'Pago pendiente']].map(([v, l]) =>
+                <Chip key={v} size="small" variant="outlined" label={l} onClick={() => setQ(v)} />)}
+            </Stack>
+          </Card>
+
+          {res && (() => {
+            const c = db.customers.find(x => x.id === res.cid);
+            const plan = res.m && planOf(db, res.m);
+            const bg = res.result === 'rej' ? t.palette.error.main : res.result === 'exc' ? t.palette.warning.main : okCol;
+            const fg = res.result === 'rej' ? '#FFFFFF' : ink(bg);
+            return (
+              <Card key={res.k} sx={{ mt: 2, overflow: 'hidden', animation: 'pop .25s ease-out', borderColor: bg }}>
+                <Box sx={{ bgcolor: bg, color: fg, px: 2.5, py: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <I n={res.result === 'rej' ? 'block' : 'check_circle'} fill sx={{ fontSize: 46 }} />
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontFamily: 'var(--f-display)', fontWeight: 800, fontSize: { xs: 30, sm: 38 }, lineHeight: 1 }}>{res.result === 'rej' ? 'NO PUEDE PASAR' : res.result === 'exc' ? 'PASA POR EXCEPCIÓN' : 'PUEDE PASAR'}</Typography>
+                    <Typography fontWeight={600}>{res.reason}</Typography>
+                  </Box>
+                </Box>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ p: 2.5 }} alignItems={{ sm: 'center' }}>
+                  <CAvatar c={c} size={64} />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="h5">{c.name}</Typography>
+                    <Typography variant="body2" color="text.secondary">{c.code} · CC {c.doc}</Typography>
+                    {plan && <Typography variant="body2" sx={{ mt: .5 }}><b>{plan.name}</b> · vence {fdate(res.m.end)}{plan.type === 'visitas' ? ` · ${Math.max(plan.visits - res.m.used, 0)} accesos restantes` : ''}</Typography>}
+                    {res.warn && <Alert severity="warning" sx={{ mt: 1, py: 0 }}>{res.warn}</Alert>}
+                  </Box>
+                  <Stack spacing={1} sx={{ minWidth: { sm: 190 } }}>
+                    {res.result === 'rej' && <Button variant="contained" color="warning" startIcon={<I n="verified_user" />} onClick={() => ctx.exception(res)}>Autorizar excepción</Button>}
+                    {(res.result === 'rej' || res.warn) && <Button variant="outlined" startIcon={<I n="autorenew" />} onClick={() => ctx.openSell(c.id)}>{res.m ? 'Renovar' : 'Inscribir'}</Button>}
+                    <Button onClick={() => ctx.openCustomer(c.id)} startIcon={<I n="badge" />}>Ver ficha</Button>
+                  </Stack>
+                </Stack>
+              </Card>
+            );
+          })()}
+
+          <SectionCard title="Últimos ingresos" icon="history" sx={{ mt: 2 }} action={<Typography variant="body2" color="text.secondary" className="num">{todayOk} hoy</Typography>}>
+            <List dense sx={{ px: 1, pb: 1 }}>{lastVisits.map(v => <VisitRow key={v.id} ctx={ctx} v={v} />)}</List>
+          </SectionCard>
+        </Grid>
+
+        <Grid item xs={12} md={5}>
+          <Grid container spacing={2}>
+            <Grid item xs={6}><Kpi icon="directions_run" label="Ingresos hoy" value={todayOk} hint={`${db.visits.filter(v => v.result === 'rej').length} rechazados`} color="success" /></Grid>
+            <Grid item xs={6}><Kpi icon="event" label="Vencen esta semana" value={soon.length} hint="Sin renovación" color="warning" /></Grid>
+            <Grid item xs={6}><Kpi icon="point_of_sale" label="Esperando pago" value={ordersWaiting.length} hint="Órdenes en el POS" color="info" onClick={() => ctx.go('pos')} /></Grid>
+            <Grid item xs={6}><Kpi icon="notification_important" label="Alertas" value={alerts.length} hint="Revisión y provisionales" color="error" /></Grid>
+          </Grid>
+          {alerts.length > 0 && <SectionCard title="Requiere atención" icon="priority_high" sx={{ mt: 2 }}>
+            <Stack spacing={1} sx={{ p: 2, pt: .5 }}>{alerts.map((a, i) => <Alert key={i} severity={a.sev} icon={<I n={a.icon} />} action={<Button size="small" color="inherit" onClick={a.act}>Ver</Button>}>{a.text}</Alert>)}</Stack>
+          </SectionCard>}
+          <SectionCard title="Esperando pago del POS" icon="hourglass_top" sx={{ mt: 2 }}>
+            {ordersWaiting.length ? <List dense sx={{ px: 1, pb: 1 }}>{ordersWaiting.map(o => {
+              const c = db.customers.find(x => x.id === o.cid);
+              return <ListItemButton key={o.id} onClick={() => ctx.go('pos')} sx={{ borderRadius: 2 }}>
+                <ListItemIcon sx={{ minWidth: 44 }}><CAvatar c={c} size={30} /></ListItemIcon>
+                <ListItemText primary={c.name} secondary={`${o.id} · ${fmt(o.amount)} · ${o.at}`} />
+                <OrderChip s={o.status} />
+              </ListItemButton>;
+            })}</List> : <Empty icon="task_alt" text="No hay cobros pendientes" />}
+          </SectionCard>
+          <SectionCard title="Vencen pronto" icon="event_upcoming" sx={{ mt: 2 }}>
+            {soon.length ? <List dense sx={{ px: 1, pb: 1 }}>{soon.map(({ c, m }) => {
+              const s = memState(db, m);
+              return <ListItemButton key={c.id} onClick={() => ctx.openCustomer(c.id)} sx={{ borderRadius: 2 }}>
+                <ListItemIcon sx={{ minWidth: 44 }}><CAvatar c={c} size={30} /></ListItemIcon>
+                <ListItemText primary={c.name} secondary={`${planOf(db, m).name} · ${s.key === 'gracia' ? `venció ${fdate(m.end)}` : s.left === 0 ? 'vence hoy' : `vence ${fdate(m.end)}`}`} />
+                <Button size="small" onClick={e => { e.stopPropagation(); ctx.openSell(c.id); }}>Renovar</Button>
+              </ListItemButton>;
+            })}</List> : <Empty icon="event_available" text="Nadie vence esta semana" />}
+          </SectionCard>
+        </Grid>
+      </Grid>
+    </>
+  );
+}
+
+/* ---------- Clientes ---------- */
+function Clientes({ ctx }) {
+  const { db } = ctx;
+  const [q, setQ] = useState(''); const [f, setF] = useState('todos');
+  const rows = db.customers.map(c => { const m = currentMem(db, c.id); return { c, m, st: memState(db, m) }; });
+  const groups = { todos: () => true, activos: r => ['activa', 'porvencer', 'provisional', 'gracia'].includes(r.st.key), porvencer: r => ['porvencer', 'gracia'].includes(r.st.key), vencidos: r => ['vencida', 'agotada'].includes(r.st.key), congelados: r => r.st.key === 'congelada', otros: r => ['pendiente', 'revision', 'sin', 'cancelada'].includes(r.st.key) };
+  const labels = { todos: 'Todos', activos: 'Activos', porvencer: 'Por vencer', vencidos: 'Vencidos', congelados: 'Congelados', otros: 'Pendientes y sin plan' };
+  const s = q.trim().toLowerCase();
+  const list = rows.filter(groups[f]).filter(r => !s || r.c.name.toLowerCase().includes(s) || r.c.doc.includes(s) || r.c.code.toLowerCase().includes(s) || r.c.phone.replace(/\s/g, '').includes(s.replace(/\s/g, '')));
+  return (
+    <>
+      <PageHead eyebrow="Clientes y perfiles" title="Clientes" sub="Busque por documento, nombre, teléfono o código y filtre por estado de la membresía."
+        action={<Button variant="contained" startIcon={<I n="person_add" />} onClick={ctx.openNewCustomer}>Nuevo cliente</Button>} />
+      <Card sx={{ p: 2, mb: 2 }}>
+        <TextField id="buscar-clientes" fullWidth size="small" value={q} onChange={e => setQ(e.target.value)} placeholder="Buscar…" InputProps={{ startAdornment: <InputAdornment position="start"><I n="search" /></InputAdornment> }} />
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1.5 }}>
+          {Object.keys(groups).map(k => <Chip key={k} label={`${labels[k]} · ${rows.filter(groups[k]).length}`} color={f === k ? 'primary' : 'default'} variant={f === k ? 'filled' : 'outlined'} onClick={() => setF(k)} />)}
+        </Stack>
+      </Card>
+      <Card>
+        {ctx.mobile ? <List>{list.map(({ c, m, st }) => <ListItemButton key={c.id} onClick={() => ctx.openCustomer(c.id)}>
+          <ListItemIcon sx={{ minWidth: 52 }}><CAvatar c={c} /></ListItemIcon>
+          <ListItemText primary={c.name} secondary={m ? `${planOf(db, m).name} · vence ${fdate(m.end)}` : 'Sin membresía'} />
+          <StateChip k={st.key} />
+        </ListItemButton>)}</List> :
+          <TableContainer><Table>
+            <TableHead><TableRow><TableCell>Cliente</TableCell><TableCell>Documento</TableCell><TableCell>Plan</TableCell><TableCell>Vence</TableCell><TableCell>Estado</TableCell><TableCell align="right">Acciones</TableCell></TableRow></TableHead>
+            <TableBody>{list.map(({ c, m, st }) => <TableRow key={c.id} hover sx={{ cursor: 'pointer' }} onClick={() => ctx.openCustomer(c.id)}>
+              <TableCell><Stack direction="row" spacing={1.5} alignItems="center"><CAvatar c={c} size={34} /><Box><Typography fontWeight={600}>{c.name}</Typography><Typography variant="caption" color="text.secondary">{c.code} · {c.phone}</Typography></Box></Stack></TableCell>
+              <TableCell className="num">{c.doc}</TableCell>
+              <TableCell>{m ? planOf(db, m).name : '—'}</TableCell>
+              <TableCell className="num">{m ? fdate(m.end) : '—'}</TableCell>
+              <TableCell><StateChip k={st.key} /></TableCell>
+              <TableCell align="right" onClick={e => e.stopPropagation()}>
+                <Tooltip title="Registrar ingreso"><IconButton onClick={() => { ctx.checkin(c.id, 'Búsqueda'); ctx.go('recepcion'); }}><I n="login" /></IconButton></Tooltip>
+                <Tooltip title={m ? 'Renovar' : 'Inscribir'}><IconButton color="primary" onClick={() => ctx.openSell(c.id)}><I n="autorenew" /></IconButton></Tooltip>
+              </TableCell>
+            </TableRow>)}
+              {!list.length && <TableRow><TableCell colSpan={6}><Empty icon="search_off" text="Sin resultados con ese filtro" /></TableCell></TableRow>}</TableBody>
+          </Table></TableContainer>}
+      </Card>
+    </>
+  );
+}
+
+function NewCustomerDialog({ ctx, onClose }) {
+  const [v, setV] = useState({ name: '', doc: '', phone: '', email: '', emergency: '', birth: '' });
+  const [ok, setOk] = useState(false); const [err, setErr] = useState('');
+  const set = k => e => setV({ ...v, [k]: e.target.value });
+  const save = () => {
+    if (!v.name.trim() || !v.doc.trim() || !v.phone.trim()) return setErr('Nombre, documento y teléfono son obligatorios.');
+    if (!ok) return setErr('El cliente debe aceptar el tratamiento de datos personales para registrarse.');
+    const dup = ctx.db.customers.find(c => c.doc === v.doc.replace(/\D/g, ''));
+    if (dup) return setErr(`Ya existe un cliente con ese documento: ${dup.name} (${dup.code}).`);
+    ctx.addCustomer(v); onClose();
+  };
+  return (
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm" fullScreen={ctx.mobile}>
+      <DialogTitle sx={{ fontFamily: 'var(--f-display)', fontWeight: 800 }}>Nuevo cliente</DialogTitle>
+      <DialogContent dividers>
+        <Grid container spacing={2}>
+          <Grid item xs={12}><TextField id="nc-nombre" label="Nombre completo *" fullWidth value={v.name} onChange={set('name')} autoFocus /></Grid>
+          <Grid item xs={12} sm={6}><TextField id="nc-doc" label="Cédula *" fullWidth value={v.doc} onChange={set('doc')} inputProps={{ inputMode: 'numeric' }} /></Grid>
+          <Grid item xs={12} sm={6}><TextField id="nc-tel" label="Celular *" fullWidth value={v.phone} onChange={set('phone')} inputProps={{ inputMode: 'tel' }} /></Grid>
+          <Grid item xs={12} sm={6}><TextField id="nc-correo" label="Correo (opcional)" fullWidth value={v.email} onChange={set('email')} /></Grid>
+          <Grid item xs={12} sm={6}><TextField id="nc-nac" label="Fecha de nacimiento (opcional)" type="date" fullWidth InputLabelProps={{ shrink: true }} value={v.birth} onChange={set('birth')} /></Grid>
+          <Grid item xs={12}><TextField id="nc-emerg" label="Contacto de emergencia (opcional)" fullWidth value={v.emergency} onChange={set('emergency')} placeholder="Nombre y teléfono" /></Grid>
+          <Grid item xs={12}><Button variant="outlined" startIcon={<I n="photo_camera" />} disabled>Foto (opcional · se toma en recepción)</Button></Grid>
+          <Grid item xs={12}>
+            <Card sx={{ p: 1.5, borderColor: ok ? 'success.main' : 'divider' }}>
+              <FormControlLabel control={<Checkbox id="nc-consent" checked={ok} onChange={e => setOk(e.target.checked)} />}
+                label={<Typography variant="body2">El cliente acepta el tratamiento de sus datos personales según la Ley 1581 de 2012 y la política de privacidad de {ctx.db.settings.gymName} (aviso v2.1).</Typography>} />
+            </Card>
+          </Grid>
+        </Grid>
+        {err && <Alert severity="error" sx={{ mt: 2 }}>{err}</Alert>}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 1.5 }}><Button onClick={onClose}>Cancelar</Button><Button variant="contained" onClick={save}>Registrar cliente</Button></DialogActions>
+    </Dialog>
+  );
+}
+
+/* ---------- Planes ---------- */
+function Planes({ ctx }) {
+  const { db } = ctx; const can = ctx.can('plan.editar');
+  const [edit, setEdit] = useState(null);
+  return (
+    <>
+      <PageHead eyebrow="Planes y membresías" title="Catálogo de planes" sub="Cada plan es un artículo del POS. Cambiar un plan no altera las membresías ya vendidas."
+        action={can && <Button variant="contained" startIcon={<I n="add" />} onClick={() => setEdit({ id: null, name: '', type: 'tiempo', days: 30, visits: null, maxDay: 1, hours: null, price: 0, pos: '', active: false })}>Nuevo plan</Button>} />
+      {!can && <Alert severity="info" sx={{ mb: 2 }}>Solo el Administrador puede crear o editar planes (permiso plan.editar).</Alert>}
+      <Grid container spacing={2}>
+        {db.plans.map(p => {
+          const sold = db.memberships.filter(m => m.planId === p.id).length;
+          return <Grid item xs={12} sm={6} lg={3} key={p.id}>
+            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column', opacity: p.active ? 1 : .6 }}>
+              <CardContent sx={{ flex: 1 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Typography variant="h5">{p.name}</Typography>
+                  <Chip size="small" label={p.type === 'visitas' ? 'Por visitas' : 'Por tiempo'} variant="outlined" />
+                </Stack>
+                <Typography className="num" sx={{ fontFamily: 'var(--f-display)', fontWeight: 800, fontSize: 28, color: 'primary.main', filter: t => t.palette.mode === 'light' ? 'brightness(.82)' : 'none' }}>{fmt(p.price)}</Typography>
+                <Stack spacing={.5} sx={{ mt: 1 }}>
+                  {[['schedule', p.type === 'visitas' ? `${p.visits} visitas en ${p.days} días` : `${p.days} día${p.days > 1 ? 's' : ''} de vigencia`],
+                  ['wb_sunny', p.hours ? `Solo de ${hm(p.hours[0] * 60)} a ${hm(p.hours[1] * 60)}` : 'Todo el horario de la sede'],
+                  ['login', `Hasta ${p.maxDay} ingreso${p.maxDay > 1 ? 's' : ''} por día`],
+                  ['point_of_sale', `Artículo POS ${p.pos || 'sin vincular'}`]].map(([ic, tx]) =>
+                    <Stack key={ic} direction="row" spacing={1} alignItems="center"><I n={ic} sx={{ fontSize: 18, color: 'text.secondary' }} /><Typography variant="body2">{tx}</Typography></Stack>)}
+                </Stack>
+              </CardContent>
+              <Divider />
+              <Stack direction="row" alignItems="center" sx={{ px: 2, py: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>{sold} vendidas en la maqueta</Typography>
+                {can && <Button size="small" onClick={() => setEdit({ ...p })}>Editar</Button>}
+              </Stack>
+            </Card>
+          </Grid>;
+        })}
+      </Grid>
+      {edit && <PlanDialog ctx={ctx} plan={edit} onClose={() => setEdit(null)} />}
+    </>
+  );
+}
+function PlanDialog({ ctx, plan, onClose }) {
+  const [p, setP] = useState(plan); const [err, setErr] = useState('');
+  const set = (k, num) => e => setP({ ...p, [k]: num ? +e.target.value : e.target.value });
+  const save = () => {
+    if (!p.name.trim()) return setErr('Escriba el nombre del plan.');
+    if (p.active && !p.pos.trim()) return setErr('Para activar el plan necesita el código del artículo en el POS.');
+    ctx.savePlan(p); onClose();
+  };
+  return (
+    <Dialog open onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle sx={{ fontFamily: 'var(--f-display)', fontWeight: 800 }}>{p.id ? `Editar ${plan.name}` : 'Nuevo plan'}</DialogTitle>
+      <DialogContent dividers>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={7}><TextField id="pl-nombre" label="Nombre" fullWidth value={p.name} onChange={set('name')} /></Grid>
+          <Grid item xs={12} sm={5}><TextField id="pl-tipo" select label="Tipo" fullWidth value={p.type} onChange={e => setP({ ...p, type: e.target.value, visits: e.target.value === 'visitas' ? (p.visits || 10) : null })}><MenuItem value="tiempo">Por tiempo</MenuItem><MenuItem value="visitas">Por visitas</MenuItem></TextField></Grid>
+          <Grid item xs={6} sm={4}><TextField id="pl-dias" label="Días de vigencia" type="number" fullWidth value={p.days} onChange={set('days', 1)} /></Grid>
+          {p.type === 'visitas' && <Grid item xs={6} sm={4}><TextField id="pl-visitas" label="Visitas" type="number" fullWidth value={p.visits || 0} onChange={set('visits', 1)} /></Grid>}
+          <Grid item xs={6} sm={4}><TextField id="pl-maxdia" label="Ingresos por día" type="number" fullWidth value={p.maxDay} onChange={set('maxDay', 1)} /></Grid>
+          <Grid item xs={6} sm={6}><TextField id="pl-precio" label="Precio de referencia" type="number" fullWidth value={p.price} onChange={set('price', 1)} InputProps={{ startAdornment: <InputAdornment position="start">$</InputAdornment> }} /></Grid>
+          <Grid item xs={12} sm={6}><TextField id="pl-pos" label="Código de artículo POS" fullWidth value={p.pos} onChange={set('pos')} placeholder="MEM-XXX" /></Grid>
+          <Grid item xs={12}><FormControlLabel control={<Switch id="pl-activo" checked={p.active} onChange={e => setP({ ...p, active: e.target.checked })} />} label="Disponible para la venta" /></Grid>
+        </Grid>
+        {err && <Alert severity="error" sx={{ mt: 2 }}>{err}</Alert>}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, py: 1.5 }}><Button onClick={onClose}>Cancelar</Button><Button variant="contained" onClick={save}>Guardar plan</Button></DialogActions>
+    </Dialog>
+  );
+}
+
+/* ---------- POS ---------- */
+function Pos({ ctx }) {
+  const { db } = ctx; const [tab, setTab] = useState(0); const t = useTheme();
+  const evCol = r => r === 'procesado' ? 'success' : r === 'duplicado' ? 'info' : 'error';
+  const low = db.products.filter(p => p.stock < p.min).length;
+  return (
+    <>
+      <PageHead eyebrow="Integración POS" title="Cobros y POS" sub="El POS es la fuente oficial de ventas, comprobantes e inventario. Aquí se ve lo que el gimnasio le pidió y lo que el POS respondió."
+        action={<FormControlLabel control={<Switch id="pos-caido" color="warning" checked={ctx.posDown} onChange={e => ctx.setPosDown(e.target.checked)} />} label="Simular POS sin conexión" />} />
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={4}><Card sx={{ p: 2, height: '100%' }}><Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{ width: 12, height: 12, borderRadius: 6, bgcolor: ctx.posDown ? 'error.main' : 'success.main', boxShadow: `0 0 0 4px ${alpha(ctx.posDown ? t.palette.error.main : t.palette.success.main, .2)}` }} />
+          <Box><Typography fontWeight={700}>{ctx.posDown ? 'POS sin conexión' : 'POS conectado'}</Typography><Typography variant="body2" color="text.secondary">Nivel {db.settings.posLevel}: API + webhooks firmados</Typography></Box>
+        </Stack></Card></Grid>
+        <Grid item xs={6} sm={4}><Kpi icon="hourglass_top" label="Órdenes esperando" value={db.orders.filter(o => ['esperando', 'reintentando'].includes(o.status)).length} color="warning" /></Grid>
+        <Grid item xs={6} sm={4}><Kpi icon="inventory_2" label="Productos bajo stock" value={low} hint="Según el POS" color="error" onClick={() => setTab(2)} /></Grid>
+      </Grid>
+      <Card>
+        <Tabs value={tab} onChange={(e, v) => setTab(v)} variant="scrollable" sx={{ px: 1, borderBottom: 1, borderColor: 'divider' }}>
+          <Tab label="Órdenes de membresía" /><Tab label="Eventos recibidos" /><Tab label="Productos e inventario" />
+        </Tabs>
+        {tab === 0 && <TableContainer><Table size="small">
+          <TableHead><TableRow><TableCell>Orden</TableCell><TableCell>Cliente</TableCell><TableCell>Creada</TableCell><TableCell align="right">Valor</TableCell><TableCell>Transacción</TableCell><TableCell>Estado</TableCell><TableCell align="right">Simular en POS</TableCell></TableRow></TableHead>
+          <TableBody>{db.orders.slice().reverse().map(o => { const c = db.customers.find(x => x.id === o.cid); return <TableRow key={o.id}>
+            <TableCell sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>{o.id}</TableCell><TableCell>{c.name}</TableCell><TableCell>{o.at}</TableCell>
+            <TableCell align="right" className="num">{fmt(o.amount)}</TableCell><TableCell>{o.txId || '—'}</TableCell><TableCell><OrderChip s={o.status} /></TableCell>
+            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+              {o.status === 'esperando' && <><Button size="small" color="success" onClick={() => ctx.approveOrder(o.id)}>Aprobar</Button><Button size="small" color="error" onClick={() => ctx.rejectOrder(o.id)}>Rechazar</Button></>}
+              {o.status === 'aprobada' && <><Button size="small" onClick={() => ctx.resendOrder(o.id)}>Reenviar</Button>{o.mid && <Button size="small" color="error" onClick={() => ctx.voidOrder(o.id)}>Devolver</Button>}</>}
+              {o.status === 'reintentando' && <Typography variant="caption" color="text.secondary">Reintentando…</Typography>}
+            </TableCell>
+          </TableRow>; })}</TableBody>
+        </Table></TableContainer>}
+        {tab === 1 && <TableContainer><Table size="small">
+          <TableHead><TableRow><TableCell>Recibido</TableCell><TableCell>Transacción</TableCell><TableCell>Evento</TableCell><TableCell>Resultado</TableCell><TableCell>Detalle</TableCell></TableRow></TableHead>
+          <TableBody>{db.events.slice().reverse().map(e => <TableRow key={e.id}>
+            <TableCell sx={{ whiteSpace: 'nowrap' }}>{e.at}</TableCell><TableCell sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>{e.tx}</TableCell><TableCell>{e.type}</TableCell>
+            <TableCell><Chip size="small" color={evCol(e.result)} variant="outlined" label={e.result} /></TableCell><TableCell>{e.detail}</TableCell>
+          </TableRow>)}</TableBody>
+        </Table>
+          <Alert severity="info" sx={{ m: 2 }}>Cada evento se guarda con la clave (transacción + tipo). Si el POS reenvía la misma confirmación, se marca "duplicado" y la membresía no cambia.</Alert>
+        </TableContainer>}
+        {tab === 2 && <>
+          <Alert severity="info" sx={{ m: 2 }}>Solo lectura. Las ventas de productos se hacen y facturan en el POS. Última sincronización: hoy 18:25.</Alert>
+          <TableContainer><Table size="small">
+            <TableHead><TableRow><TableCell>SKU</TableCell><TableCell>Producto</TableCell><TableCell>Categoría</TableCell><TableCell align="right">Precio</TableCell><TableCell>Impuesto</TableCell><TableCell align="right">Existencias</TableCell></TableRow></TableHead>
+            <TableBody>{db.products.map(p => <TableRow key={p.sku}>
+              <TableCell sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>{p.sku}</TableCell><TableCell>{p.name}</TableCell><TableCell>{p.cat}</TableCell>
+              <TableCell align="right" className="num">{fmt(p.price)}</TableCell><TableCell>{p.tax}</TableCell>
+              <TableCell align="right"><Stack direction="row" spacing={1} justifyContent="flex-end" alignItems="center"><span className="num">{p.stock}</span>{p.stock < p.min && <Chip size="small" color="error" label={`Bajo stock · mín. ${p.min}`} />}</Stack></TableCell>
+            </TableRow>)}</TableBody>
+          </Table></TableContainer>
+        </>}
+      </Card>
+    </>
+  );
+}
+
+/* ---------- Conciliación ---------- */
+const RTYPE = { MATCHED: ['Conciliada', 'success'], AMOUNT_DIFF: ['Diferencia de valor', 'warning'], ONLY_POS: ['Solo en POS', 'error'], ONLY_GYM: ['Solo en gimnasio', 'error'], PROVISIONAL_UNLINKED: ['Provisional sin transacción', 'warning'] };
+function Conciliacion({ ctx }) {
+  const { db } = ctx;
+  const open = db.recon.filter(r => r.status === 'abierta');
+  const totGym = db.recon.reduce((a, r) => a + r.gym, 0), totPos = db.recon.reduce((a, r) => a + r.pos, 0);
+  return (
+    <>
+      <PageHead eyebrow="Integración POS" title="Conciliación diaria" sub="Cruce de órdenes del gimnasio con las ventas del POS del 09 nov 2026, por ID de transacción y referencia GYM."
+        action={<Button variant="outlined" startIcon={<I n="table_view" />} onClick={() => ctx.exportCsv('conciliacion-2026-11-09', ['Tipo', 'Transacción', 'Orden', 'Valor gimnasio', 'Valor POS', 'Estado'], db.recon.map(r => [RTYPE[r.type][0], r.tx, r.order, r.gym, r.pos, r.status]))}>Exportar CSV</Button>} />
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={6} md={3}><Kpi icon="receipt_long" label="Total gimnasio" value={fmt(totGym)} color="primary" /></Grid>
+        <Grid item xs={6} md={3}><Kpi icon="point_of_sale" label="Total POS (oficial)" value={fmt(totPos)} color="info" /></Grid>
+        <Grid item xs={6} md={3}><Kpi icon="difference" label="Diferencia" value={fmt(totPos - totGym)} color={totPos === totGym ? 'success' : 'warning'} /></Grid>
+        <Grid item xs={6} md={3}><Kpi icon="pending_actions" label="Por resolver" value={open.length} color="error" /></Grid>
+      </Grid>
+      <Card><TableContainer><Table>
+        <TableHead><TableRow><TableCell>Resultado</TableCell><TableCell>Transacción</TableCell><TableCell>Orden</TableCell><TableCell>Cliente</TableCell><TableCell align="right">Gimnasio</TableCell><TableCell align="right">POS</TableCell><TableCell>Observación</TableCell><TableCell /></TableRow></TableHead>
+        <TableBody>{db.recon.map(r => { const c = r.cid && db.customers.find(x => x.id === r.cid); const [l, col] = RTYPE[r.type]; return <TableRow key={r.id}>
+          <TableCell><Chip size="small" color={r.status === 'resuelta' ? 'default' : col} variant={r.status === 'abierta' ? 'filled' : 'outlined'} label={r.status === 'resuelta' ? `${l} · resuelta` : l} /></TableCell>
+          <TableCell sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>{r.tx}</TableCell><TableCell sx={{ fontFamily: 'ui-monospace, Consolas, monospace' }}>{r.order}</TableCell>
+          <TableCell>{c ? c.name : '—'}</TableCell><TableCell align="right" className="num">{fmt(r.gym)}</TableCell><TableCell align="right" className="num">{fmt(r.pos)}</TableCell>
+          <TableCell sx={{ maxWidth: 280 }}>{r.resolution || r.note}</TableCell>
+          <TableCell align="right">{r.status === 'abierta' && <Button size="small" variant="outlined" disabled={!ctx.can('pos.ajuste_anulacion')} onClick={() => ctx.askReason({ title: 'Resolver diferencia', confirm: 'Marcar resuelta', onSubmit: why => ctx.resolveRecon(r.id, why) })}>Resolver</Button>}</TableCell>
+        </TableRow>; })}</TableBody>
+      </Table></TableContainer></Card>
+    </>
+  );
+}
+
+/* ---------- Tablero ---------- */
+function Bars({ data, labels, height = 180, color, hi }) {
+  const t = useTheme(); const max = Math.max(...data) * 1.15; const W = 560, H = height, pad = 26, bw = (W - pad) / data.length;
+  const ticks = [0, Math.round(max / 2 / 10) * 10, Math.round(max / 10) * 10].filter((v, i, a) => a.indexOf(v) === i);
+  return (
+    <Box sx={{ overflowX: 'auto' }}>
+      <svg viewBox={`0 0 ${W} ${H + 22}`} width="100%" role="img" aria-label="Visitas por día" style={{ minWidth: 420, display: 'block' }}>
+        {ticks.map(v => { const y = H - v / max * (H - 10); return <g key={v}><line x1={pad} x2={W} y1={y} y2={y} stroke={t.palette.divider} /><text x={pad - 6} y={y + 4} textAnchor="end" fontSize="10" fill={t.palette.text.secondary}>{v}</text></g>; })}
+        {data.map((v, i) => { const h = v / max * (H - 10); const x = pad + i * bw + bw * .18; return <g key={i}>
+          <rect x={x} y={H - h} width={bw * .64} height={h} rx="4" fill={i === hi ? color : alpha(color, .45)} />
+          {i === hi && <text x={x + bw * .32} y={H - h - 6} textAnchor="middle" fontSize="11" fontWeight="700" fill={t.palette.text.primary}>{v}</text>}
+          <text x={x + bw * .32} y={H + 15} textAnchor="middle" fontSize="10" fill={t.palette.text.secondary}>{labels[i]}</text>
+        </g>; })}
+      </svg>
+    </Box>
+  );
+}
+function Tablero({ ctx }) {
+  const t = useTheme(); const { db } = ctx;
+  const visits = [138, 152, 147, 96, 61, 159, 171, 149, 163, 155, 104, 58, 166, 128];
+  const labels = Array.from({ length: 14 }, (_, i) => addDays(TODAY, i - 13).slice(8, 10));
+  const hours = [4, 38, 61, 44, 22, 14, 12, 18, 20, 16, 15, 29, 52, 68, 57, 33, 9];
+  const plans = [['Mensual', 182, 21840000], ['Trimestral', 64, 20480000], ['Madrugador', 41, 3649000], ['Tiquetera 10', 37, 4070000], ['Anual', 12, 12600000], ['Día', 96, 1440000]];
+  const pmax = Math.max(...plans.map(p => p[1]));
+  const rows = [['Membresías activas', 412], ['Por vencer (7 días)', 23], ['Vencidas (30 días)', 31], ['Nuevas en noviembre', 18], ['Renovadas en noviembre', 46]];
+  return (
+    <>
+      <PageHead eyebrow="Reportes e indicadores · cifras de ejemplo" title="Tablero gerencial" sub="Corte a martes 10 nov 2026, 18:30. Ventas y recaudo tomados del POS."
+        action={<Button variant="outlined" startIcon={<I n="table_view" />} onClick={() => ctx.exportCsv('tablero-noviembre-2026', ['Indicador', 'Valor'], rows)}>Exportar CSV</Button>} />
+      <Grid container spacing={2}>
+        <Grid item xs={6} md={2}><Kpi icon="verified" label="Activas" value="412" hint="+9 vs. octubre" color="success" onClick={() => ctx.go('clientes')} /></Grid>
+        <Grid item xs={6} md={2}><Kpi icon="schedule" label="Por vencer" value="23" hint="Próx. 7 días" color="warning" onClick={() => ctx.go('clientes')} /></Grid>
+        <Grid item xs={6} md={2}><Kpi icon="event_busy" label="Vencidas" value="31" hint="Últimos 30 días" color="error" /></Grid>
+        <Grid item xs={6} md={2}><Kpi icon="person_add" label="Nuevas" value="18" hint="Noviembre" color="info" /></Grid>
+        <Grid item xs={6} md={2}><Kpi icon="autorenew" label="Renovadas" value="46" hint="Noviembre" color="primary" /></Grid>
+        <Grid item xs={6} md={2}><Kpi icon="directions_run" label="Visitas hoy" value={128 + db.visits.filter(v => v.result !== 'rej').length - 5} hint="Prom. 132/día" color="info" /></Grid>
+
+        <Grid item xs={12} md={8}><SectionCard title="Visitas por día · últimos 14 días" icon="bar_chart">
+          <Box sx={{ px: 2, pb: 2 }}><Bars data={visits} labels={labels} color={t.palette.primary.main} hi={13} />
+            <Typography variant="caption" color="text.secondary">Los fines de semana caen a la mitad. Hoy (10) va a 18:30.</Typography></Box>
+        </SectionCard></Grid>
+        <Grid item xs={12} md={4}><SectionCard title="Recaudo de noviembre" icon="payments" sx={{ height: '100%' }}>
+          <Stack spacing={1.5} sx={{ p: 2, pt: .5 }}>
+            {[['Membresías', 38420000, 'primary'], ['Productos', 6915000, 'info']].map(([l, v, c]) => <Box key={l}>
+              <Stack direction="row" justifyContent="space-between"><Typography variant="body2" fontWeight={600}>{l}</Typography><Typography className="num" fontWeight={700}>{fmt(v)}</Typography></Stack>
+              <LinearProgress variant="determinate" value={v / 453350 * 1} color={c} sx={{ height: 8, borderRadius: 4, mt: .5 }} />
+            </Box>)}
+            <Divider />
+            <Stack direction="row" justifyContent="space-between"><Typography fontWeight={700}>Total POS</Typography><Typography className="num" sx={{ fontFamily: 'var(--f-display)', fontWeight: 800, fontSize: 24 }}>{fmt(45335000)}</Typography></Stack>
+            <Alert severity={db.recon.some(r => r.status === 'abierta') ? 'warning' : 'success'} action={<Button size="small" color="inherit" onClick={() => ctx.go('conciliacion')}>Ver</Button>}>
+              {db.recon.filter(r => r.status === 'abierta').length} diferencias de conciliación abiertas</Alert>
+            <Typography variant="caption" color="text.secondary">Fuente: POS · sincronizado hoy 18:25</Typography>
+          </Stack>
+        </SectionCard></Grid>
+
+        <Grid item xs={12} md={6}><SectionCard title="Planes más vendidos · 2026" icon="leaderboard">
+          <Stack spacing={1.25} sx={{ p: 2, pt: .5 }}>{plans.sort((a, b) => b[1] - a[1]).map(([n, q, v], i) => <Box key={n}>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="body2" fontWeight={600}>{n}</Typography><Typography variant="body2" className="num" color="text.secondary">{q} · {fmt(v)}</Typography></Stack>
+            <Box sx={{ height: 10, borderRadius: 5, bgcolor: 'divider', mt: .5 }}><Box sx={{ height: '100%', width: `${q / pmax * 100}%`, borderRadius: 5, bgcolor: i === 0 ? 'primary.main' : t => alpha(t.palette.primary.main, .45) }} /></Box>
+          </Box>)}</Stack>
+        </SectionCard></Grid>
+        <Grid item xs={12} md={6}><SectionCard title="Clientes" icon="insights">
+          <Grid container spacing={2} sx={{ p: 2, pt: .5 }}>
+            {[['Retención octubre', '76 %', '38 de 50 renovaron'], ['Altas del mes', '18', '7 por referidos'], ['Bajas del mes', '12', 'No renovaron tras gracia'], ['Asistencia promedio', '3,1', 'visitas/semana por activo']].map(([l, v, h]) =>
+              <Grid item xs={6} key={l}><Typography variant="body2" color="text.secondary" fontWeight={600}>{l}</Typography><Typography className="num" sx={{ fontFamily: 'var(--f-display)', fontWeight: 800, fontSize: 28 }}>{v}</Typography><Typography variant="caption" color="text.secondary">{h}</Typography></Grid>)}
+          </Grid>
+          <Box sx={{ px: 2, pb: 2 }}>
+            <Typography variant="body2" fontWeight={600} sx={{ mb: .5 }}>Horas pico (promedio por hora, 05:00–21:00)</Typography>
+            <Stack direction="row" spacing={.5} alignItems="flex-end" sx={{ height: 60 }}>{hours.map((h, i) => <Tooltip key={i} title={`${hm((5 + i) * 60)} · ${h} visitas`}><Box sx={{ flex: 1, height: `${h / 68 * 100}%`, borderRadius: 1, bgcolor: h > 50 ? 'primary.main' : t => alpha(t.palette.text.secondary, .3) }} /></Tooltip>)}</Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography variant="caption" color="text.secondary">05 h</Typography><Typography variant="caption" color="text.secondary">13 h</Typography><Typography variant="caption" color="text.secondary">21 h</Typography></Stack>
+          </Box>
+        </SectionCard></Grid>
+      </Grid>
+    </>
+  );
+}
+
+/* ---------- Auditoría ---------- */
+function Auditoria({ ctx }) {
+  const [q, setQ] = useState('');
+  const s = q.toLowerCase();
+  const rows = ctx.db.audit.filter(a => !s || Object.values(a).join(' ').toLowerCase().includes(s));
+  return (
+    <>
+      <PageHead eyebrow="Seguridad" title="Auditoría" sub="Registro inmutable: nadie puede editar ni borrar estas filas, ni siquiera el administrador."
+        action={<Button variant="outlined" startIcon={<I n="table_view" />} onClick={() => ctx.exportCsv('auditoria', ['Fecha', 'Usuario', 'Acción', 'Entidad', 'Antes', 'Después', 'Motivo'], rows.map(a => [a.at, a.user, a.action, a.entity, a.before, a.after, a.reason]))}>Exportar CSV</Button>} />
+      <Card sx={{ p: 2, mb: 2 }}><TextField id="buscar-auditoria" fullWidth size="small" value={q} onChange={e => setQ(e.target.value)} placeholder="Filtrar por usuario, acción, cliente o motivo" InputProps={{ startAdornment: <InputAdornment position="start"><I n="filter_list" /></InputAdornment> }} /></Card>
+      <Card><TableContainer><Table size="small">
+        <TableHead><TableRow><TableCell>Fecha</TableCell><TableCell>Usuario</TableCell><TableCell>Acción</TableCell><TableCell>Entidad</TableCell><TableCell>Antes → Después</TableCell><TableCell>Motivo</TableCell></TableRow></TableHead>
+        <TableBody>{rows.map((a, i) => <TableRow key={i}>
+          <TableCell sx={{ whiteSpace: 'nowrap' }}>{a.at}</TableCell><TableCell>{a.user}</TableCell><TableCell><b>{a.action}</b></TableCell><TableCell>{a.entity}</TableCell>
+          <TableCell sx={{ whiteSpace: 'nowrap' }}>{a.before} → {a.after}</TableCell><TableCell>{a.reason}</TableCell>
+        </TableRow>)}</TableBody>
+      </Table></TableContainer></Card>
+    </>
+  );
+}
+
+/* ---------- Usuarios ---------- */
+function Usuarios({ ctx }) {
+  const list = [
+    { n: 'Ana Lucía Prieto', r: 'admin', mail: 'admin@titanfitness.co', last: 'Hoy 09:12' },
+    { n: 'Marcela Duarte', r: 'gerencia', mail: 'gerencia@titanfitness.co', last: 'Hoy 17:58' },
+    { n: 'Julián Arango', r: 'recepcion', mail: 'recepcion1@titanfitness.co', last: 'Hoy 18:29' },
+    { n: 'Paula Ramírez', r: 'recepcion', mail: 'recepcion2@titanfitness.co', last: 'Ayer 21:40', extra: ['acceso.excepcion'] }
+  ];
+  const ALL = ['acceso.excepcion', 'membresia.congelar', 'membresia.activacion_manual', 'pos.ajuste_anulacion', 'descuento.autorizar', 'plan.editar'];
+  return (
+    <>
+      <PageHead eyebrow="Seguridad" title="Usuarios y permisos" sub="Tres roles base. Los permisos sensibles se asignan por persona y cada cambio queda auditado." action={<Button variant="contained" startIcon={<I n="person_add" />} disabled>Invitar usuario</Button>} />
+      <Card><TableContainer><Table>
+        <TableHead><TableRow><TableCell>Usuario</TableCell><TableCell>Rol</TableCell><TableCell>Permisos sensibles</TableCell><TableCell>Último acceso</TableCell></TableRow></TableHead>
+        <TableBody>{list.map(u => { const ps = [...PERMS[u.r], ...(u.extra || [])].filter(p => ALL.includes(p)); return <TableRow key={u.n}>
+          <TableCell><Typography fontWeight={600}>{u.n}</Typography><Typography variant="caption" color="text.secondary">{u.mail}</Typography></TableCell>
+          <TableCell><Chip size="small" label={USERS[u.r].role} color={u.r === 'admin' ? 'secondary' : u.r === 'gerencia' ? 'primary' : 'default'} /></TableCell>
+          <TableCell><Stack direction="row" spacing={.5} flexWrap="wrap" useFlexGap>{ps.length ? ps.map(p => <Chip key={p} size="small" variant="outlined" label={p} />) : <Typography variant="body2" color="text.secondary">Ninguno</Typography>}</Stack></TableCell>
+          <TableCell>{u.last}</TableCell>
+        </TableRow>; })}</TableBody>
+      </Table></TableContainer></Card>
+      <Alert severity="info" sx={{ mt: 2 }}>Contraseña mínima de 10 caracteres · bloqueo de 15 minutos tras 5 intentos fallidos · sesión de recepción de 12 horas en tabletas registradas.</Alert>
+    </>
+  );
+}
+
+/* ---------- Configuración ---------- */
+function Config({ ctx }) {
+  const { db } = ctx; const s = db.settings;
+  const [v, setV] = useState(s);
+  useEffect(() => setV(db.settings), [db.settings]);
+  const set = (k, num) => e => setV({ ...v, [k]: num ? +e.target.value : e.target.value });
+  const brand = ctx.draft || ctx.brand;
+  return (
+    <>
+      <PageHead eyebrow="Configuración" title="Parámetros y marca" sub="Las reglas aplican a las nuevas operaciones. Cada cambio queda en la auditoría con el valor anterior." />
+      <Grid container spacing={2.5}>
+        <Grid item xs={12} lg={6}>
+          <SectionCard title="Paleta de colores" icon="palette">
+            <Stack spacing={1.25} sx={{ p: 2, pt: .5 }}>
+              {Object.entries(PALETTES).map(([k, p]) => <Card key={k} role="button" tabIndex={0} onClick={() => ctx.setDraft({ ...brand, palette: k })} onKeyDown={e => e.key === 'Enter' && ctx.setDraft({ ...brand, palette: k })}
+                sx={{ p: 1.5, cursor: 'pointer', borderWidth: 2, borderColor: brand.palette === k ? 'primary.main' : 'divider' }}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Stack direction="row" sx={{ borderRadius: 2, overflow: 'hidden', flexShrink: 0, border: 1, borderColor: 'divider' }}>
+                    {[p.primary, p.secondary, p.accent].map(c => <Box key={c} sx={{ width: 30, height: 40, bgcolor: c }} />)}
+                  </Stack>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Stack direction="row" spacing={1} alignItems="center"><Typography fontWeight={700} sx={{ fontFamily: 'var(--f-display)', fontSize: 18 }}>{p.name}</Typography>{p.rec && <Chip size="small" color="primary" label="Recomendada" />}</Stack>
+                    <Typography variant="body2" color="text.secondary">{p.desc}</Typography>
+                  </Box>
+                  {brand.palette === k && <I n="check_circle" fill sx={{ color: 'primary.main' }} />}
+                </Stack>
+              </Card>)}
+              <Typography variant="body2" fontWeight={600} sx={{ pt: 1 }}>Modo</Typography>
+              <ToggleButtonGroup exclusive size="small" value={brand.mode} onChange={(e, m) => m && ctx.setDraft({ ...brand, mode: m })}>
+                <ToggleButton value="system"><I n="contrast" sx={{ mr: .5, fontSize: 18 }} />Sistema</ToggleButton>
+                <ToggleButton value="light"><I n="light_mode" sx={{ mr: .5, fontSize: 18 }} />Claro</ToggleButton>
+                <ToggleButton value="dark"><I n="dark_mode" sx={{ mr: .5, fontSize: 18 }} />Oscuro</ToggleButton>
+              </ToggleButtonGroup>
+              <Typography variant="body2" fontWeight={600} sx={{ pt: 1 }}>Colores de estado (fijos en todas las paletas)</Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>{['activa', 'porvencer', 'vencida', 'congelada', 'pendiente'].map(k => <StateChip key={k} k={k} />)}</Stack>
+              {ctx.draft && <Alert severity="info" action={<Stack direction="row" spacing={1}><Button size="small" color="inherit" onClick={() => ctx.setDraft(null)}>Descartar</Button><Button size="small" variant="contained" onClick={ctx.saveBrand}>Guardar</Button></Stack>}>Vista previa: así se verá para todos los usuarios.</Alert>}
+            </Stack>
+          </SectionCard>
+        </Grid>
+        <Grid item xs={12} lg={6}>
+          <SectionCard title="Reglas de membresía y acceso" icon="rule">
+            <Grid container spacing={2} sx={{ p: 2, pt: 1 }}>
+              <Grid item xs={12}><TextField id="cfg-inicio" select fullWidth label="La vigencia inicia" value={v.startOn} onChange={set('startOn')}><MenuItem value="pago">El día del pago</MenuItem><MenuItem value="ingreso">El día del primer ingreso</MenuItem></TextField></Grid>
+              <Grid item xs={6}><TextField id="cfg-gracia" type="number" fullWidth label="Días de gracia" value={v.grace} onChange={set('grace', 1)} /></Grid>
+              <Grid item xs={6}><TextField id="cfg-aviso" type="number" fullWidth label="Aviso 'por vencer' (días)" value={v.aviso} onChange={set('aviso', 1)} /></Grid>
+              <Grid item xs={6}><TextField id="cfg-reingreso" type="number" fullWidth label="Reingreso sin descontar (min)" value={v.reentry} onChange={set('reentry', 1)} /></Grid>
+              <Grid item xs={6}><TextField id="cfg-congela-anio" type="number" fullWidth label="Congelaciones por año" value={v.freezeYear} onChange={set('freezeYear', 1)} /></Grid>
+              <Grid item xs={6}><TextField id="cfg-congela-min" type="number" fullWidth label="Congelación mínima (días)" value={v.freezeMin} onChange={set('freezeMin', 1)} /></Grid>
+              <Grid item xs={6}><TextField id="cfg-congela-max" type="number" fullWidth label="Congelación máxima (días)" value={v.freezeMax} onChange={set('freezeMax', 1)} /></Grid>
+            </Grid>
+          </SectionCard>
+          <SectionCard title="Sede" icon="storefront" sx={{ mt: 2 }}>
+            <Grid container spacing={2} sx={{ p: 2, pt: 1 }}>
+              <Grid item xs={12} sm={6}><TextField id="cfg-gym" fullWidth label="Nombre del gimnasio" value={v.gymName} onChange={set('gymName')} /></Grid>
+              <Grid item xs={12} sm={6}><TextField id="cfg-sede" fullWidth label="Sede" value={v.sede} onChange={set('sede')} /></Grid>
+              <Grid item xs={12}><TextField id="cfg-dir" fullWidth label="Dirección" value={v.address} onChange={set('address')} /></Grid>
+              <Grid item xs={6}><TextField id="cfg-abre" type="number" fullWidth label="Abre (hora)" value={v.open[0]} onChange={e => setV({ ...v, open: [+e.target.value, v.open[1]] })} /></Grid>
+              <Grid item xs={6}><TextField id="cfg-cierra" type="number" fullWidth label="Cierra (hora)" value={v.open[1]} onChange={e => setV({ ...v, open: [v.open[0], +e.target.value] })} /></Grid>
+            </Grid>
+            <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ px: 2, pb: 2 }}>
+              <Button onClick={() => setV(db.settings)}>Descartar</Button>
+              <Button variant="contained" onClick={() => ctx.saveSettings(v)} disabled={JSON.stringify(v) === JSON.stringify(s)}>Guardar parámetros</Button>
+            </Stack>
+          </SectionCard>
+        </Grid>
+      </Grid>
+    </>
+  );
+}
+
+/* ---------- Navegación ---------- */
+const NAV = [
+  { id: 'recepcion', label: 'Recepción', icon: 'how_to_reg', roles: ['recepcion', 'gerencia', 'admin'] },
+  { id: 'clientes', label: 'Clientes', icon: 'group', roles: ['recepcion', 'gerencia', 'admin'] },
+  { id: 'planes', label: 'Planes', icon: 'card_membership', roles: ['recepcion', 'gerencia', 'admin'] },
+  { id: 'pos', label: 'Cobros y POS', icon: 'point_of_sale', roles: ['recepcion', 'gerencia', 'admin'] },
+  { id: 'conciliacion', label: 'Conciliación', icon: 'rule_settings', roles: ['gerencia', 'admin'] },
+  { id: 'tablero', label: 'Tablero', icon: 'monitoring', roles: ['gerencia', 'admin'] },
+  { id: 'auditoria', label: 'Auditoría', icon: 'history_edu', roles: ['gerencia', 'admin'] },
+  { id: 'usuarios', label: 'Usuarios', icon: 'manage_accounts', roles: ['admin'] },
+  { id: 'config', label: 'Configuración', icon: 'tune', roles: ['admin'] }
+];
+const PAGES = { recepcion: Recepcion, clientes: Clientes, planes: Planes, pos: Pos, conciliacion: Conciliacion, tablero: Tablero, auditoria: Auditoria, usuarios: Usuarios, config: Config };
+
+function Shell({ ctx }) {
+  const t = useTheme(); const [open, setOpen] = useState(false);
+  const p = PALETTES[ctx.brand.palette];
+  const items = NAV.filter(n => n.roles.includes(ctx.role));
+  const Page = PAGES[ctx.page] || Recepcion;
+  const W = 248;
+  const side = (
+    <Box sx={{ height: '100%', bgcolor: 'side.main', color: '#E9ECF1', display: 'flex', flexDirection: 'column', pt: 'env(safe-area-inset-top, 0px)' }}>
+      <Stack direction="row" spacing={1.25} alignItems="center" sx={{ px: 2.25, py: 2.25 }}>
+        <Box sx={{ width: 38, height: 38, borderRadius: 2.5, bgcolor: 'primary.main', color: 'primary.contrastText', display: 'grid', placeItems: 'center' }}><I n="fitness_center" fill /></Box>
+        <Box><Typography sx={{ fontFamily: 'var(--f-display)', fontWeight: 800, fontSize: 20, lineHeight: 1 }}>{ctx.db.settings.gymName.replace(' Fitness Club', '')}</Typography><Typography variant="caption" sx={{ opacity: .65, letterSpacing: '.14em', textTransform: 'uppercase' }}>Fitness Club</Typography></Box>
+      </Stack>
+      <List sx={{ px: 1.25, flex: 1 }}>
+        {items.map(n => { const on = ctx.page === n.id; return (
+          <ListItemButton key={n.id} onClick={() => { ctx.go(n.id); setOpen(false); }} selected={on}
+            sx={{ borderRadius: 2, mb: .5, color: on ? 'primary.contrastText' : 'inherit', '&.Mui-selected': { bgcolor: 'primary.main' }, '&.Mui-selected:hover': { bgcolor: 'primary.main' }, '&:hover': { bgcolor: alpha('#FFFFFF', .08) } }}>
+            <ListItemIcon sx={{ minWidth: 38, color: 'inherit' }}><I n={n.icon} fill={on} /></ListItemIcon>
+            <ListItemText primary={n.label} primaryTypographyProps={{ fontWeight: on ? 700 : 500 }} />
+          </ListItemButton>); })}
+      </List>
+      <Box sx={{ p: 2, m: 1.25, borderRadius: 3, bgcolor: alpha('#FFFFFF', .06) }}>
+        <Typography variant="caption" sx={{ opacity: .7 }}>Ver la maqueta como</Typography>
+        <Stack spacing={.5} sx={{ mt: .75 }}>
+          {Object.entries(USERS).map(([k, u]) => <Button key={k} size="small" onClick={() => ctx.setRole(k)}
+            sx={{ justifyContent: 'flex-start', color: ctx.role === k ? p.accent : '#E9ECF1', fontWeight: ctx.role === k ? 800 : 500 }} startIcon={<I n={ctx.role === k ? 'radio_button_checked' : 'radio_button_unchecked'} sx={{ fontSize: 18 }} />}>{u.role}</Button>)}
+        </Stack>
+      </Box>
+    </Box>
+  );
+  return (
+    <Box sx={{ display: 'flex', minHeight: '100%' }}>
+      {ctx.mobile ? <Drawer open={open} onClose={() => setOpen(false)} PaperProps={{ sx: { width: W, border: 0 } }}>{side}</Drawer>
+        : <Box component="nav" sx={{ width: W, flexShrink: 0, position: 'sticky', top: 0, height: '100vh' }}>{side}</Box>}
+      <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        <AppBar position="sticky" color="inherit" elevation={0} sx={{ top: 'env(safe-area-inset-top, 0px)', bgcolor: alpha(t.palette.background.default, .9), backdropFilter: 'blur(8px)', borderBottom: 1, borderColor: 'divider' }}>
+          <Toolbar disableGutters className="gutter" sx={{ gap: 1.5 }}>
+            {ctx.mobile && <IconButton edge="start" onClick={() => setOpen(true)} aria-label="Abrir menú"><I n="menu" /></IconButton>}
+            <Typography sx={{ flex: 1, fontWeight: 600 }} noWrap color="text.secondary">{ctx.db.settings.sede}</Typography>
+            {ctx.posDown && <Chip size="small" color="warning" icon={<I n="cloud_off" sx={{ fontSize: 16 }} />} label="POS sin conexión" />}
+            <Chip size="small" variant="outlined" icon={<I n="schedule" sx={{ fontSize: 16 }} />} label={<span className="num">{hm(ctx.clock)}</span>} />
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Avatar sx={{ width: 34, height: 34, bgcolor: 'secondary.main', color: '#fff', fontSize: 14, fontWeight: 700 }}>{initials(ctx.user.name)}</Avatar>
+              {!ctx.mobile && <Box><Typography variant="body2" fontWeight={700} lineHeight={1.1}>{ctx.user.name}</Typography><Typography variant="caption" color="text.secondary">{ctx.user.role}</Typography></Box>}
+            </Stack>
+          </Toolbar>
+        </AppBar>
+        <Box component="main" className="gutter" sx={{ py: 3, flex: 1, maxWidth: 1400, width: '100%', mx: 'auto' }}>
+          <Page ctx={ctx} />
+        </Box>
+        <Box className="gutter" sx={{ py: 2, color: 'text.secondary', fontSize: 12, borderTop: 1, borderColor: 'divider' }}>
+          Maqueta navegable · datos de ejemplo · {ctx.db.settings.gymName} · {ctx.db.settings.address} · Los cambios se pierden al recargar.
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
+/* ---------- App ---------- */
+const BRAND_KEY = 'titan-gym-brand-v1';
+function loadBrand() { try { const b = JSON.parse(localStorage.getItem(BRAND_KEY)); if (b && PALETTES[b.palette]) return b; } catch (e) { } return { palette: 'pulso', mode: 'system' }; }
+
+function App() {
+  const [db, setDb] = useState(seed);
+  const [role, setRoleRaw] = useState('recepcion');
+  const [page, setPage] = useState('recepcion');
+  const [brand, setBrand] = useState(loadBrand);
+  const [draft, setDraft] = useState(null);
+  const [toast, setToast] = useState(null);
+  const [clock, setClock] = useState(18 * 60 + 30);
+  const [lastCheck, setLastCheck] = useState(null);
+  const [posDown, setPosDownRaw] = useState(false);
+  const [dlg, setDlg] = useState(null);
+  const [reason, setReason] = useState(null);
+  const [csv, setCsv] = useState(null);
+  const sysDark = useMediaQuery('(prefers-color-scheme: dark)');
+  const active = draft || brand;
+  const mode = active.mode === 'system' ? (sysDark ? 'dark' : 'light') : active.mode;
+  const theme = useMemo(() => buildTheme(active, mode), [active.palette, mode]);
+  const mobile = useMediaQuery('(max-width:899px)');
+  const user = USERS[role];
+
+  useEffect(() => { document.documentElement.setAttribute('data-theme', mode); }, [mode]);
+  useEffect(() => {
+    const apply = () => { let h = ''; try { h = location.hash.slice(1); } catch (e) { } if (PAGES[h]) { const need = NAV.find(n => n.id === h).roles; setPage(h); setRoleRaw(r => need.includes(r) ? r : need[need.length - 1]); } };
+    apply(); window.addEventListener('hashchange', apply); return () => window.removeEventListener('hashchange', apply);
+  }, []);
+
+  const notify = (msg, sev = 'success') => setToast({ msg, sev, k: Date.now() });
+  const go = id => { setPage(id); try { history.replaceState(null, '', '#' + id); } catch (e) { } };
+  const setRole = r => { setRoleRaw(r); if (!NAV.find(n => n.id === page).roles.includes(r)) go('recepcion'); notify(`Ahora ve la maqueta como ${USERS[r].role}`, 'info'); };
+  const can = p => PERMS[role].includes(p);
+  const stamp = () => `10 nov · ${hm(clock)}`;
+  const tick = () => setClock(c => Math.min(c + 1, 21 * 60 + 59));
+  const audit = (d, action, entity, before, after, reasonTxt, by) => ({ ...d, audit: [{ at: stamp(), user: by || user.name, action, entity, before, after, reason: reasonTxt || '—' }, ...d.audit] });
+  const cname = (d, cid) => d.customers.find(c => c.id === cid).name;
+
+  const checkin = (cid, method) => {
+    const r = evaluateAccess(db, cid, clock);
+    const v = { id: 'v' + db.seq.v, cid, min: clock, method, op: user.name, result: r.ok ? 'ok' : 'rej', reason: r.ok ? (r.reentry ? 'Reingreso' : r.reason) : r.reason, reentry: !!r.reentry };
+    setDb(d => {
+      let ms = d.memberships;
+      if (r.ok && !r.reentry && r.m && planOf(d, r.m).type === 'visitas') ms = ms.map(m => m.id === r.m.id ? { ...m, used: m.used + 1 } : m);
+      return { ...d, memberships: ms, visits: [...d.visits, v], seq: { ...d.seq, v: d.seq.v + 1 } };
+    });
+    setLastCheck({ ...r, cid, result: v.result, vid: v.id, k: Date.now() });
+    tick();
+  };
+  const exception = res => {
+    const pin = !can('acceso.excepcion');
+    setReason({ title: 'Autorizar excepción de ingreso', confirm: 'Autorizar ingreso', color: 'warning', pin,
+      text: `${cname(db, res.cid)} fue rechazado: ${res.reason}. El ingreso quedará marcado como excepción.`,
+      onSubmit: (why, by) => {
+        const who = by || user.name;
+        setDb(d => audit({ ...d, visits: d.visits.map(v => v.id === res.vid ? { ...v, result: 'exc', reason: `Excepción: ${why}` } : v) }, 'Excepción de ingreso', cname(d, res.cid), 'Rechazado', 'Permitido (excepción)', why, who));
+        setLastCheck(l => ({ ...l, result: 'exc', reason: `Autorizado por ${who}: ${why}`, k: Date.now() }));
+        notify('Excepción registrada en la auditoría');
+      } });
+  };
+  const createOrder = (cid, planId, start) => {
+    const plan = db.plans.find(p => p.id === planId);
+    const oid = 'GYM-' + String(db.seq.order).padStart(4, '0'); const mid = 'm' + db.seq.m;
+    setDb(d => audit({
+      ...d,
+      memberships: [...d.memberships, { id: mid, cid, planId, start, end: addDays(start, plan.days - 1), status: 'pendiente', used: 0, txId: null, orderId: oid, amount: plan.price }],
+      orders: [...d.orders, { id: oid, cid, mid, amount: plan.price, status: posDown ? 'reintentando' : 'esperando', at: stamp(), txId: null }],
+      seq: { ...d.seq, order: d.seq.order + 1, m: d.seq.m + 1 }
+    }, 'Orden enviada al POS', `${cname(d, cid)} · ${oid}`, '—', `Pendiente · ${plan.name}`));
+    notify(posDown ? `POS sin conexión: ${oid} queda en reintento` : `Orden ${oid} enviada al POS`, posDown ? 'warning' : 'info');
+    tick(); return oid;
+  };
+  const approveOrder = oid => setDb(d => {
+    const o = d.orders.find(x => x.id === oid);
+    if (o.status === 'aprobada') return d;
+    const tx = 'TX-' + d.seq.tx;
+    const prevActive = d.memberships.find(m => m.cid === o.cid && m.id !== o.mid && ['activa'].includes(m.status));
+    let nd = {
+      ...d,
+      orders: d.orders.map(x => x.id === oid ? { ...x, status: 'aprobada', txId: tx } : x),
+      memberships: d.memberships.map(m => m.id === o.mid ? { ...m, status: 'activa', txId: tx } : m),
+      events: [...d.events, { id: 'e' + d.seq.e, at: stamp(), tx, type: 'pago.aprobado', result: 'procesado', detail: `${oid} · ${fmt(o.amount)} · Tarjeta débito` }],
+      recon: [...d.recon, { id: 'r' + d.seq.e, type: 'MATCHED', tx, order: oid, cid: o.cid, gym: o.amount, pos: o.amount, status: 'conciliada', note: 'Venta de hoy' }],
+      seq: { ...d.seq, tx: d.seq.tx + 1, e: d.seq.e + 1 }
+    };
+    setTimeout(() => notify(`Pago ${tx} aprobado: membresía de ${cname(d, o.cid)} activa`), 0);
+    return audit(nd, 'Membresía activada por pago POS', `${cname(d, o.cid)} · ${oid}`, 'Pendiente', 'Activa', `Transacción ${tx}${prevActive ? ' · renovación encadenada' : ''}`, 'Sistema POS');
+  });
+  const rejectOrder = oid => setDb(d => {
+    const o = d.orders.find(x => x.id === oid);
+    setTimeout(() => notify('El POS rechazó el pago. La membresía sigue pendiente.', 'error'), 0);
+    return { ...d, orders: d.orders.map(x => x.id === oid ? { ...x, status: 'rechazada' } : x), events: [...d.events, { id: 'e' + d.seq.e, at: stamp(), tx: 'TX-' + d.seq.tx, type: 'pago.rechazado', result: 'procesado', detail: `${oid} · fondos insuficientes` }], seq: { ...d.seq, tx: d.seq.tx + 1, e: d.seq.e + 1 } };
+  });
+  const resendOrder = oid => setDb(d => {
+    const o = d.orders.find(x => x.id === oid);
+    setTimeout(() => notify('Confirmación repetida ignorada: la membresía no cambió (idempotencia)', 'info'), 0);
+    return audit({ ...d, events: [...d.events, { id: 'e' + d.seq.e, at: stamp(), tx: o.txId, type: 'pago.aprobado', result: 'duplicado', detail: 'Reenvío del POS ignorado. La membresía no cambió.' }], seq: { ...d.seq, e: d.seq.e + 1 } }, 'Evento duplicado ignorado', o.txId, '—', '—', 'Idempotencia por ID de transacción', 'Sistema POS');
+  });
+  const voidOrder = oid => setDb(d => {
+    const o = d.orders.find(x => x.id === oid);
+    setTimeout(() => notify(`Devolución de ${o.txId}: la membresía pasó a En revisión`, 'warning'), 0);
+    return audit({
+      ...d, orders: d.orders.map(x => x.id === oid ? { ...x, status: 'anulada' } : x),
+      memberships: d.memberships.map(m => m.id === o.mid ? { ...m, status: 'revision', reviewReason: `Devolución registrada en el POS (${o.txId})` } : m),
+      events: [...d.events, { id: 'e' + d.seq.e, at: stamp(), tx: o.txId, type: 'venta.devuelta', result: 'procesado', detail: `Membresía de ${cname(d, o.cid)} pasa a En revisión` }], seq: { ...d.seq, e: d.seq.e + 1 }
+    }, 'Membresía a En revisión', cname(d, o.cid), 'Activa', 'En revisión', `Devolución ${o.txId}`, 'Sistema POS');
+  });
+  const manualActivate = (cid, planId, start, why) => {
+    const plan = db.plans.find(p => p.id === planId);
+    const oid = 'GYM-' + String(db.seq.order).padStart(4, '0'); const mid = 'm' + db.seq.m;
+    setDb(d => audit({
+      ...d,
+      memberships: [...d.memberships, { id: mid, cid, planId, start, end: addDays(start, plan.days - 1), status: 'provisional', used: 0, txId: null, orderId: oid, amount: plan.price, manual: { by: user.name, at: stamp(), reason: why } }],
+      orders: [...d.orders, { id: oid, cid, mid, amount: plan.price, status: 'manual', at: stamp(), txId: null }],
+      seq: { ...d.seq, order: d.seq.order + 1, m: d.seq.m + 1 }
+    }, 'Activación manual provisional', `${cname(d, cid)} · ${oid}`, '—', 'Activa (provisional)', why));
+    notify('Membresía activa en modo provisional', 'warning'); return oid;
+  };
+  const setPosDown = v => {
+    setPosDownRaw(v);
+    if (!v) { setDb(d => ({ ...d, orders: d.orders.map(o => o.status === 'reintentando' ? { ...o, status: 'esperando' } : o) })); notify('POS conectado de nuevo: las órdenes en reintento se enviaron', 'info'); }
+    else notify('POS sin conexión. El check-in sigue funcionando con datos locales.', 'warning');
+  };
+  const openReview = mid => {
+    const m = db.memberships.find(x => x.id === mid);
+    setDlg({ type: 'review', mid, cid: m.cid });
+  };
+  const resolveReview = (mid, decision, why) => setDb(d => {
+    const m = d.memberships.find(x => x.id === mid);
+    const after = decision === 'revertir' ? 'cancelada' : 'activa';
+    setTimeout(() => notify(decision === 'revertir' ? 'Membresía revertida (cancelada)' : 'Membresía mantenida activa'), 0);
+    return audit({ ...d, memberships: d.memberships.map(x => x.id === mid ? { ...x, status: after } : x) }, decision === 'revertir' ? 'Revertir membresía por anulación' : 'Mantener membresía tras anulación', cname(d, m.cid), 'En revisión', STATE[after].label, why);
+  });
+  const freeze = (mid, days, why) => setDb(d => {
+    const m = d.memberships.find(x => x.id === mid);
+    setTimeout(() => notify(`Congelada ${days} días. Nuevo vencimiento: ${fdate(addDays(m.end, days))}`, 'info'), 0);
+    return audit({ ...d, memberships: d.memberships.map(x => x.id === mid ? { ...x, status: 'congelada', end: addDays(x.end, days), freeze: { from: TODAY, to: addDays(TODAY, days - 1), reason: why } } : x) }, 'Congelar membresía', cname(d, m.cid), `Activa · vence ${fdate(m.end)}`, `Congelada · vence ${fdate(addDays(m.end, days))}`, why);
+  });
+  const resume = mid => setDb(d => {
+    const m = d.memberships.find(x => x.id === mid);
+    const unused = Math.max(diff(m.freeze.to, TODAY), 0);
+    const end = addDays(m.end, -unused);
+    setTimeout(() => notify(`Membresía reanudada. Vence el ${fdate(end)}`), 0);
+    return audit({ ...d, memberships: d.memberships.map(x => x.id === mid ? { ...x, status: 'activa', end, freeze: { ...x.freeze, to: addDays(TODAY, -1) } } : x) }, 'Reanudar membresía', cname(d, m.cid), 'Congelada', `Activa · vence ${fdate(end)}`, `Devuelve ${unused} días no usados`);
+  });
+  const addCustomer = v => {
+    const id = db.seq.c; const cols = ['#FF8A5B', '#5B8DEF', '#4CC9A0', '#C77DFF', '#F2A516'];
+    setDb(d => audit({ ...d, customers: [...d.customers, { id, code: 'TF-' + String(id).padStart(4, '0'), name: v.name.trim(), doc: v.doc.replace(/\D/g, ''), phone: v.phone, email: v.email || '—', color: cols[id % 5], consent: { at: TODAY, ver: 'v2.1' }, notes: [] }], seq: { ...d.seq, c: id + 1 } }, 'Registrar cliente', v.name.trim(), '—', 'Sin membresía', 'Consentimiento v2.1 aceptado'));
+    notify(`${v.name.trim()} registrado. Ahora inscríbalo en un plan.`);
+    setTimeout(() => setDlg({ type: 'sell', cid: id }), 300);
+  };
+  const addNote = (cid, text) => setDb(d => ({ ...d, customers: d.customers.map(c => c.id === cid ? { ...c, notes: [...c.notes, { at: TODAY, by: user.name, text }] } : c) }));
+  const savePlan = p => setDb(d => {
+    const exists = p.id && d.plans.find(x => x.id === p.id);
+    const np = exists ? p : { ...p, id: 'p' + (d.plans.length + 1) };
+    notify(`Plan ${p.name} guardado. Las membresías vendidas conservan sus condiciones.`);
+    return audit({ ...d, plans: exists ? d.plans.map(x => x.id === p.id ? np : x) : [...d.plans, np] }, exists ? 'Editar plan' : 'Crear plan', p.name, exists ? `${fmt(exists.price)} · ${exists.pos}` : '—', `${fmt(p.price)} · ${p.pos || 'sin POS'}`, '—');
+  });
+  const resolveRecon = (rid, why) => setDb(d => { notify('Diferencia resuelta'); return audit({ ...d, recon: d.recon.map(r => r.id === rid ? { ...r, status: 'resuelta', resolution: why } : r) }, 'Resolver conciliación', d.recon.find(r => r.id === rid).tx, 'Abierta', 'Resuelta', why); });
+  const saveSettings = v => setDb(d => {
+    const ch = Object.keys(v).filter(k => JSON.stringify(v[k]) !== JSON.stringify(d.settings[k]));
+    notify('Parámetros guardados');
+    return audit({ ...d, settings: v }, 'Cambio de parámetros', ch.join(', '), ch.map(k => String(d.settings[k])).join(' · '), ch.map(k => String(v[k])).join(' · '), '—');
+  });
+  const saveBrand = () => { setBrand(draft); try { localStorage.setItem(BRAND_KEY, JSON.stringify(draft)); } catch (e) { } setDb(d => audit(d, 'Cambio de marca', 'Paleta', PALETTES[brand.palette].name, PALETTES[draft.palette].name, '—')); setDraft(null); notify('Paleta guardada para todos los usuarios'); };
+  const exportCsv = (name, head, rows) => {
+    const esc = x => /[",;\n]/.test(String(x)) ? `"${String(x).replace(/"/g, '""')}"` : String(x);
+    setCsv({ name, text: [head, ...rows].map(r => r.map(esc).join(';')).join('\n') });
+    setDb(d => audit(d, 'Exportar reporte', name, '—', `${rows.length} filas`, 'CSV'));
+  };
+
+  const ctx = {
+    db, role, setRole, user, can, page, go, mobile, clock, lastCheck, posDown, setPosDown, brand, draft, setDraft, saveBrand, notify,
+    checkin, exception, createOrder, approveOrder, rejectOrder, resendOrder, voidOrder, manualActivate, openReview, freeze, resume,
+    addCustomer, addNote, savePlan, resolveRecon, saveSettings, exportCsv,
+    openCustomer: cid => setDlg({ type: 'customer', cid }), openSell: cid => setDlg({ type: 'sell', cid }), openNewCustomer: () => setDlg({ type: 'new' }),
+    askReason: r => setReason(r)
+  };
+  const revM = dlg?.type === 'review' && db.memberships.find(m => m.id === dlg.mid);
+
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Shell ctx={ctx} />
+      {dlg?.type === 'customer' && <CustomerDialog ctx={ctx} cid={dlg.cid} onClose={() => setDlg(null)} />}
+      {dlg?.type === 'sell' && <SellDialog key={dlg.cid} ctx={ctx} cid={dlg.cid} onClose={() => setDlg(null)} />}
+      {dlg?.type === 'new' && <NewCustomerDialog ctx={ctx} onClose={() => setDlg(null)} />}
+      {revM && <Dialog open onClose={() => setDlg(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontFamily: 'var(--f-display)', fontWeight: 800 }}>Resolver membresía en revisión</DialogTitle>
+        <DialogContent><Typography variant="body2" color="text.secondary"><b>{cname(db, revM.cid)}</b> · {revM.reviewReason}. Decida qué pasa con la membresía. Su decisión y el motivo quedan auditados.</Typography></DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, flexWrap: 'wrap', gap: 1 }}>
+          <Button onClick={() => setDlg(null)}>Cancelar</Button>
+          <Button variant="outlined" color="success" onClick={() => { setDlg(null); setReason({ title: 'Mantener activa', confirm: 'Mantener', color: 'success', onSubmit: w => resolveReview(revM.id, 'mantener', w) }); }}>Mantener activa</Button>
+          <Button variant="contained" color="error" onClick={() => { setDlg(null); setReason({ title: 'Revertir membresía', confirm: 'Revertir', color: 'error', onSubmit: w => resolveReview(revM.id, 'revertir', w) }); }}>Revertir</Button>
+        </DialogActions>
+      </Dialog>}
+      <ReasonDialog open={!!reason} {...(reason || {})} onClose={() => setReason(null)} onSubmit={(r, by) => { const f = reason.onSubmit; setReason(null); f(r, by); }} />
+      <Dialog open={!!csv} onClose={() => setCsv(null)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontFamily: 'var(--f-display)', fontWeight: 800 }}>Exportación · {csv?.name}.csv</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>En el sistema real se descarga el archivo. En la maqueta, copie el contenido y péguelo en Excel. La exportación quedó en la auditoría.</Typography>
+          <TextField id="csv-texto" multiline fullWidth minRows={6} maxRows={14} value={csv?.text || ''} InputProps={{ readOnly: true, sx: { fontFamily: 'ui-monospace, Consolas, monospace', fontSize: 12.5 } }} onFocus={e => e.target.select()} />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCsv(null)}>Cerrar</Button>
+          <Button variant="contained" startIcon={<I n="content_copy" />} onClick={() => { navigator.clipboard?.writeText(csv.text).then(() => notify('CSV copiado'), () => notify('Seleccione el texto y cópielo con Ctrl+C', 'info')); }}>Copiar</Button>
+        </DialogActions>
+      </Dialog>
+      <Snackbar key={toast?.k} open={!!toast} autoHideDuration={4200} onClose={() => setToast(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }} sx={{ mb: 'env(safe-area-inset-bottom, 0px)' }}>
+        {toast ? <Alert severity={toast.sev} variant="filled" onClose={() => setToast(null)} sx={{ fontWeight: 600 }}>{toast.msg}</Alert> : <span />}
+      </Snackbar>
+    </ThemeProvider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
